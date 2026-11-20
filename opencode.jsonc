@@ -1,5 +1,21 @@
 {
   "$schema": "https://opencode.ai/config.json",
+
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "ls *": "allow",
+      "pwd": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git branch*": "allow",
+      "grep *": "allow",
+      "rm *": "deny"
+    },
+    "edit": "ask"
+  },
+
   "agent": {
     "orchestrator": {
       "description": "Chief Orchestrator of Phantom Logic. Coordinates specialized agents and manages product delivery.",
