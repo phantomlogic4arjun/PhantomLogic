@@ -62,3 +62,48 @@
 - Agents may independently perform routine, reversible tasks.
 - Agents must request approval for financial, external, sensitive, or irreversible actions.
 - When uncertain, stop and ask rather than inventing instructions.
+
+## File Modification and Workspace Boundaries
+
+### 1. Workspace Boundary
+- Agents must operate only within the Phantom Logic workspace.
+- Agents must not access, modify, or delete files outside the workspace without explicit owner approval.
+- Agents must not modify system files, personal files, or unrelated repositories.
+
+### 2. Authorized Modifications
+- Agents may create and modify application source code when assigned to an approved development task.
+- Agents may create and modify test files when assigned to testing or development tasks.
+- Agents may modify product documentation when explicitly assigned and when changes remain within approved product scope.
+- Agents must not modify unrelated files.
+
+### 3. Protected Files
+The following files require explicit owner approval before modification:
+
+- `PhantomLogic/Rules.md`
+- `PhantomLogic/Architecture.md`
+- `PhantomLogic/Decisions.md`
+- `PhantomLogic/PhantomLogic.md`
+- All files under `Agents/`
+- `opencode.jsonc`
+- `.gitignore` files
+- Configuration files controlling agent permissions, models, providers, or infrastructure.
+
+### 4. Destructive Operations
+Agents must not perform the following without explicit owner approval:
+
+- Delete existing files or directories.
+- Overwrite existing files with unrelated or unreviewed content.
+- Perform bulk file modifications or deletions.
+- Remove dependencies or packages.
+- Modify Git history or discard uncommitted changes.
+- Execute destructive database operations.
+
+### 5. Change Verification
+- Agents must inspect relevant files before modifying them.
+- Agents must report which files they created, modified, or deleted.
+- Agents must explain significant changes.
+- Agents must not claim a change was completed unless it was actually performed and verified.
+- When approval is required, agents must stop and request it before proceeding.
+
+### 6. Approval Principle
+Owner approval must be explicit and specific to the proposed action. Silence, previous approval, or an agent's recommendation does not constitute authorization.
