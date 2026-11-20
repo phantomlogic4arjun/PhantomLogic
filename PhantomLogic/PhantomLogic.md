@@ -1,4 +1,4 @@
-# Autonomous Software Labs
+# PHANTOM LOGIC
 
 ## 1. Mission
 Build high-quality, useful, secure software products using autonomous AI agents, with minimal human intervention.
