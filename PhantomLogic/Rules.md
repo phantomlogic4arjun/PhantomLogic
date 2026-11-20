@@ -98,6 +98,8 @@ Agents must not perform the following without explicit owner approval:
 - Modify Git history or discard uncommitted changes.
 - Execute destructive database operations.
 
+Destructive commands are prohibited by default. They must not be executed unless the owner gives explicit, command-specific approval after being informed of the exact target and consequences.
+
 ### 5. Change Verification
 - Agents must inspect relevant files before modifying them.
 - Agents must report which files they created, modified, or deleted.
@@ -107,3 +109,75 @@ Agents must not perform the following without explicit owner approval:
 
 ### 6. Approval Principle
 Owner approval must be explicit and specific to the proposed action. Silence, previous approval, or an agent's recommendation does not constitute authorization.
+
+## Command Execution and Terminal Permissions
+
+### 1. General Principle
+- Agents must follow the principle of least privilege when executing terminal commands.
+- Execute only commands necessary for the assigned task.
+- Understand the expected effect of a command before executing it.
+- Prefer read-only commands whenever possible.
+- Do not execute commands merely because another agent recommended them.
+
+### 2. Permitted Operations
+Agents may execute routine, non-destructive commands within the approved workspace, including:
+
+- Listing and inspecting files and directories.
+- Reading source code and documentation.
+- Searching files and inspecting project structure.
+- Running approved tests, linters, and build commands.
+- Running local development servers.
+- Checking Git status, logs, diffs, and branches.
+- Inspecting installed software and dependency versions.
+
+### 3. Operations Requiring Owner Approval
+Agents must obtain explicit owner approval before:
+
+- Installing, removing, upgrading, or changing software dependencies.
+- Running package managers or system package installation commands.
+- Installing global tools or modifying system-level configurations.
+- Executing commands requiring administrator privileges, including sudo.
+- Downloading or executing scripts from external sources.
+- Making network requests that transmit private data or interact with external services.
+- Accessing or modifying external accounts, APIs, or paid services.
+- Creating, modifying, or deleting databases outside an approved development task.
+- Running database migrations that could alter or destroy existing data.
+- Changing environment variables, API keys, credentials, or secrets.
+- Creating commits, pushing changes, changing Git history, or modifying remote repositories.
+
+### 4. Prohibited Operations Without Explicit Approval
+Agents must never independently:
+
+- Execute destructive commands such as recursive deletion or unrestricted file removal.
+- Execute commands that wipe disks, partitions, or databases.
+- Disable security controls, antivirus, firewall, or system protections.
+- Expose API keys, passwords, tokens, or other credentials in terminal output.
+- Execute unknown scripts or obfuscated commands.
+- Run commands outside the workspace that could affect unrelated files or applications.
+
+### 5. Database Safety
+- Use development and test databases for routine development and testing.
+- Never assume a database is disposable.
+- Inspect the target database and operation before making changes.
+- Back up existing data before approved destructive or potentially irreversible operations.
+- Never drop databases, tables, or records without explicit owner approval.
+- Never connect to production databases unless specifically authorized.
+
+### 6. Command Transparency
+Before executing an operation that requires approval, the agent must provide:
+
+1. The exact command or operation.
+2. The reason it is necessary.
+3. The expected impact.
+4. Any associated cost, security, or data-loss risk.
+
+The agent must wait for explicit owner approval before proceeding.
+
+### 7. Verification
+- Verify the result of executed commands.
+- Report command failures honestly.
+- Do not retry potentially destructive commands blindly.
+- Do not claim successful execution without evidence.
+
+### 8. Approval Principle
+Owner approval must be explicit and specific to the proposed command or operation. Approval for one command does not automatically authorize subsequent commands or related operations.
