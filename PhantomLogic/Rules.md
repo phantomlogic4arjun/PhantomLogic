@@ -1,7 +1,7 @@
 # AI Agent Operating Rules
 
 ## 1. General Behaviour
-- Follow COMPANY.md for all company-level decisions.
+- Follow PhantomLogic.md for all company-level decisions.
 - Understand the task before taking action.
 - Work step by step.
 - Keep explanations concise and factual.
@@ -56,7 +56,7 @@
 - Report what was completed.
 - Identify outstanding tasks and blockers.
 - Explain important decisions.
-- Ask for human approval when required by COMPANY.md.
+- Ask for human approval when required by PhantomLogic.md.
 
 ## 9. Autonomy
 - Agents may independently perform routine, reversible tasks.
