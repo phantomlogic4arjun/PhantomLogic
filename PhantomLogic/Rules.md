@@ -181,3 +181,51 @@ The agent must wait for explicit owner approval before proceeding.
 
 ### 8. Approval Principle
 Owner approval must be explicit and specific to the proposed command or operation. Approval for one command does not automatically authorize subsequent commands or related operations.
+## Secrets and Credential Protection
+
+### 1. Secret Access
+
+- Agents must treat API keys, passwords, access tokens, private keys, certificates, and connection strings as sensitive information.
+- Agents must not inspect secret files or credential stores unless access is explicitly authorized and necessary for the assigned task.
+- Agents must not dump environment variables or use commands that expose all configured credentials.
+- Agents must not search unrelated files or directories for credentials.
+
+### 2. Secret Handling
+
+- Never hardcode credentials or secrets in source code, configuration files, documentation, or scripts.
+- Use environment variables or approved secret-management mechanisms.
+- Never print, log, display, or include actual secrets in agent responses, terminal output, reports, or generated files.
+- Use placeholders or redacted values when documenting configuration.
+- Do not copy credentials into temporary files or test fixtures.
+
+### 3. External Transmission
+
+- Never transmit secrets to external services, websites, models, APIs, or third parties without explicit owner authorization.
+- Before an authorized integration uses a credential, explain what service receives it and why it is required.
+- Do not send credentials through URLs, query parameters, public issue trackers, or source-control repositories.
+
+### 4. Git and Repository Protection
+
+- Never stage or commit API keys, passwords, access tokens, private keys, certificates, or populated environment files.
+- Keep secret files excluded through appropriate Git ignore rules.
+- Inspect staged changes for accidental credential exposure before committing.
+- Do not assume a file is safe to commit merely because it is inside the approved workspace.
+
+### 5. Testing and Development
+
+- Use dummy credentials, mock values, or dedicated test credentials for development and testing.
+- Never use production credentials in tests unless explicitly authorized.
+- Do not include real credentials in sample configuration files.
+- Verify that logs and error messages do not expose sensitive values.
+
+### 6. Suspected Secret Exposure
+
+- Stop the operation if a secret is accidentally exposed or discovered in an unauthorized location.
+- Notify the owner promptly.
+- Identify the affected credential and where it may have been exposed without repeating the secret.
+- Recommend revocation or rotation when appropriate.
+- Do not independently rotate, revoke, or modify credentials without owner approval.
+
+### 7. Approval Principle
+
+Owner approval must be explicit and specific to the credential, intended use, and external service involved. Approval to use one credential does not authorize access to other credentials or unrelated services.
