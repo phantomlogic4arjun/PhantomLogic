@@ -13,7 +13,10 @@
       "grep *": "allow",
       "rm *": "deny"
     },
-    "edit": "ask"
+    "edit": "ask",
+    "external_directory": "ask",
+    "webfetch": "ask",
+    "websearch": "ask"
   },
 
   "agent": {
