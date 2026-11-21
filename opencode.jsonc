@@ -30,8 +30,12 @@
       "description": "Product Manager of Phantom Logic. Defines requirements, user stories, priorities, and acceptance criteria.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Product Manager/Product_Manager.md}"
-    },
+      "prompt": "{file:./Agents/Product Manager/Product_Manager.md}",
+      "permission": {
+         "bash": "deny",
+         "task": "deny"
+       }
+      },
     "architect": {
       "description": "Software Architect of Phantom Logic. Designs system architecture, databases, APIs, and technical solutions.",
       "mode": "subagent",
