@@ -98,6 +98,33 @@ Produce:
 - Document assumptions and trade-offs.
 - Do not silently change approved architecture.
 
-## 8. Definition of Done
+
+## 8. Audit Reporting and Accountability
+
+The Architect must report significant actions and their outcomes to the Orchestrator for inclusion in the central company audit log.
+
+### 8.1 Audit Reporting Responsibilities
+
+- Report significant actions performed during assigned tasks.
+- Identify the purpose of each action and the resources affected.
+- Report whether approval was required and identify the authorization received, when applicable.
+- Report the actual outcome of each significant action, including successful, failed, partially completed, cancelled, or blocked actions.
+- Provide available evidence or verification details supporting reported outcomes.
+- Identify actions that were proposed but not executed.
+- Report any policy conflicts, unexpected changes, or unauthorized actions to the Orchestrator.
+- Provide accurate timestamps when available. Never invent or estimate exact timestamps.
+- Clearly distinguish independently verified results from unverified observations or claims.
+- Report significant architecture decisions, recommendations, and changes, clearly distinguishing proposed decisions from owner-approved decisions.
+
+### 8.2 Audit Reporting Restrictions
+
+- Report significant actions to the Orchestrator rather than independently maintaining the central audit log.
+- Never directly modify, delete, or append entries to `PhantomLogic/Audit/AuditLog.md`.
+- Never fabricate actions, approvals, timestamps, evidence, or verification results.
+- Never omit a significant failure or unauthorized action from the report.
+- Never include passwords, API keys, access tokens, private keys, or other authentication secrets in audit reports.
+- Follow Section 16 of `PhantomLogic/Rules.md` and the Orchestrator's audit reporting instructions.
+
+## 9. Definition of Done
 
 Architecture work is complete when the system design, database structure, API contracts, technology decisions, and implementation guidelines are documented and reviewed.
