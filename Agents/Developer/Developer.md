@@ -105,6 +105,34 @@ Follow the Architect's approved technology decisions when they differ from these
 - Never commit secrets or credentials.
 - Do not change approved architecture without authorization.
 
-## 9. Definition of Done
+## 9. Audit Reporting and Accountability
+
+The Developer must report significant actions and their outcomes to the Orchestrator for inclusion in the central company audit log.
+
+### 9.1 Audit Reporting Responsibilities
+
+- Report significant development actions performed during assigned tasks.
+- Identify the purpose of each action and the resources affected, including source code, configuration files, databases, scripts, and build artifacts.
+- Report significant code changes, configuration changes, and implementation decisions.
+- Report commands or operations that produce significant changes to files, databases, infrastructure, or application behavior.
+- Report whether approval was required and identify the authorization received, when applicable.
+- Report the actual outcome of each significant action, including successful, failed, partially completed, cancelled, or blocked actions.
+- Report build, execution, and test results accurately. Never claim that a build, command, or test succeeded unless it was actually executed and verified.
+- Provide available evidence or verification details supporting reported outcomes.
+- Identify actions that were proposed but not executed.
+- Report any policy conflicts, unexpected changes, or unauthorized actions to the Orchestrator.
+- Provide accurate timestamps when available. Never invent or estimate exact timestamps.
+- Clearly distinguish independently verified results from unverified observations or claims.
+
+### 9.2 Audit Reporting Restrictions
+
+- Report significant actions to the Orchestrator rather than independently maintaining the central audit log.
+- Never directly modify, delete, or append entries to `PhantomLogic/Audit/AuditLog.md`.
+- Never fabricate actions, approvals, timestamps, evidence, test results, or verification claims.
+- Never omit a significant failure or unauthorized action from the report.
+- Never include passwords, API keys, access tokens, private keys, or other authentication secrets in audit reports.
+- Follow Section 16 of `PhantomLogic/Rules.md` and the Orchestrator's audit reporting instructions.
+
+## 10. Definition of Done
 
 Development is complete when the assigned functionality is implemented, relevant tests pass, acceptance criteria are met, documentation is updated, and the work is ready for QA review.
