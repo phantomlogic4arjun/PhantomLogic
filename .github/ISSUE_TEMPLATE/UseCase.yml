@@ -1,0 +1,87 @@
+name: Use Case
+description: Define a scenario or interaction within a Feature.
+title: "[USE CASE] "
+type: Use Case
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to define a Use Case belonging to a Feature.
+        Every Use Case must have at least one Requirement and one Development Task.
+
+  - type: textarea
+    id: actor
+    attributes:
+      label: Actor
+      description: Who or what initiates this Use Case?
+      placeholder: Describe the user, agent, system, or external actor.
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What does the actor want to accomplish?
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Preconditions
+      description: What must be true before this Use Case begins?
+    validations:
+      required: true
+
+  - type: textarea
+    id: trigger
+    attributes:
+      label: Trigger
+      description: What event initiates this Use Case?
+    validations:
+      required: true
+
+  - type: textarea
+    id: main_flow
+    attributes:
+      label: Main Flow
+      description: Describe the expected sequence of interactions.
+      placeholder: |
+        1. Actor performs an action.
+        2. System processes the action.
+        3. System produces the expected result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternate_flows
+    attributes:
+      label: Alternate and Exception Flows
+      description: Describe alternative paths and exceptional scenarios.
+    validations:
+      required: false
+
+  - type: textarea
+    id: postconditions
+    attributes:
+      label: Postconditions
+      description: What should be true after successful completion?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define observable conditions for successful completion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: assumptions
+    attributes:
+      label: Assumptions and Constraints
+      description: Identify relevant assumptions and constraints.
+    validations:
+      required: false

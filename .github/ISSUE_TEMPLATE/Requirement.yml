@@ -1,0 +1,84 @@
+name: Requirement
+description: Define a specific and verifiable system requirement.
+title: "[REQ] "
+type: Requirement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to define a requirement belonging to a Use Case.
+        Requirements must be specific, measurable, and verifiable.
+
+  - type: textarea
+    id: requirement_statement
+    attributes:
+      label: Requirement Statement
+      description: Describe what the system must do or what condition it must satisfy.
+      placeholder: |
+        The system shall...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: requirement_category
+    attributes:
+      label: Requirement Category
+      description: Select the primary category.
+      options:
+        - Functional
+        - Non-Functional
+        - Security
+        - Performance
+        - Reliability
+        - Usability
+        - Compliance
+        - Integration
+        - Data
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: Explain why this requirement is necessary.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define objectively verifiable conditions for satisfying this requirement.
+      placeholder: |
+        - Given...
+        - When...
+        - Then...
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification_method
+    attributes:
+      label: Verification Method
+      description: Explain how this requirement will be verified.
+      placeholder: Test, inspection, analysis, or demonstration.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Constraints
+      description: Identify dependencies, assumptions, or technical constraints.
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Include relevant design documents, specifications, or external references.
+    validations:
+      required: false

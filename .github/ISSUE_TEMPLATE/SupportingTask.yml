@@ -1,0 +1,71 @@
+name: Supporting Task
+description: Define architecture, design, security, or DevOps work.
+title: "[SUPPORT] "
+type: Supporting Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for supporting work associated with a Feature.
+        Select the appropriate Task Category in the Phantom Logic Project.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      description: Select the category of supporting work.
+      options:
+        - Architecture
+        - Design
+        - Security
+        - DevOps
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What outcome should this supporting task achieve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope of Work
+      description: Describe the work included in this task.
+    validations:
+      required: true
+
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Expected Deliverables
+      description: List the documents, configurations, assessments, or other outputs expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_details
+    attributes:
+      label: Technical Details
+      description: Include relevant technical information, standards, and constraints.
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Blockers
+      description: Identify dependencies, assumptions, and potential blockers.
+    validations:
+      required: false
+
+  - type: textarea
+    id: completion_criteria
+    attributes:
+      label: Completion Criteria
+      description: Define the conditions that must be satisfied before this task can be resolved.
+    validations:
+      required: true

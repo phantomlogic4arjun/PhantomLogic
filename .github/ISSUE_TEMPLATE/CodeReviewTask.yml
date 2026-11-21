@@ -1,0 +1,107 @@
+name: Code Review Task
+description: Define the Feature-level code review assigned to the Reviewer agent.
+title: "[CODE REVIEW] "
+type: Code Review Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to create the Feature-level Code Review Task.
+        Exactly one Code Review Task is required per Feature.
+        The Reviewer agent owns this task and must be different from the Developer.
+
+  - type: textarea
+    id: feature
+    attributes:
+      label: Feature
+      description: Identify the Feature this review covers.
+      placeholder: "Feature issue reference, for example #123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: development_tasks
+    attributes:
+      label: Development Tasks
+      description: List the Development Task issue references included in this review.
+      placeholder: |
+        - #124
+        - #125
+    validations:
+      required: true
+
+  - type: textarea
+    id: change_sets
+    attributes:
+      label: Change Sets
+      description: Identify the Change Sets associated with this Feature.
+    validations:
+      required: false
+
+  - type: textarea
+    id: pull_requests
+    attributes:
+      label: Pull Requests
+      description: List the pull requests containing the changes to be reviewed.
+      placeholder: |
+        - #126
+        - #127
+    validations:
+      required: false
+
+  - type: textarea
+    id: review_scope
+    attributes:
+      label: Review Scope
+      description: Describe the changes and components included in this review.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: review_areas
+    attributes:
+      label: Review Areas
+      description: Areas the Reviewer must evaluate against Phantom Logic's Coding Standards and Code Review Guidelines.
+      options:
+        - label: Coding standards and naming conventions
+        - label: Readability and maintainability
+        - label: Separation of concerns and architecture
+        - label: Duplication and code reuse
+        - label: Error handling and logging
+        - label: Security practices
+        - label: Performance considerations
+        - label: Testing and test quality
+        - label: Documentation and comments
+        - label: Consistency with existing project conventions
+
+  - type: textarea
+    id: review_standards
+    attributes:
+      label: Review Standards
+      description: |
+        Review against:
+        - PhantomLogic/Standards/CodingStandards.md
+        - PhantomLogic/Standards/CodeReviewGuidelines.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: Review Findings
+      description: The Reviewer records findings, their severity, affected files, and required corrective actions.
+    validations:
+      required: false
+
+  - type: textarea
+    id: completion_criteria
+    attributes:
+      label: Completion Criteria
+      description: |
+        The review can be resolved only when:
+        - All required changes have been reviewed.
+        - Findings have been addressed or formally accepted through the authorized process.
+        - The reviewed PR revision is approved.
+        - No unreviewed material commits remain.
+    validations:
+      required: true

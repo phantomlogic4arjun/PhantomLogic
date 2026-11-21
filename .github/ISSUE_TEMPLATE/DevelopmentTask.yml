@@ -1,0 +1,89 @@
+name: Development Task
+description: Define implementation work for a Use Case.
+title: "[DEV] "
+type: Development Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to define the implementation task for a Use Case.
+        Each Use Case must have exactly one Development Task.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Implementation Objective
+      description: What needs to be implemented?
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_approach
+    attributes:
+      label: Technical Approach
+      description: Describe the proposed implementation approach.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected_components
+    attributes:
+      label: Affected Components
+      description: Identify the expected modules, services, APIs, or other components affected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Related Requirements
+      description: List the Requirement issue references this implementation supports.
+      placeholder: |
+        - #123
+        - #124
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation_steps
+    attributes:
+      label: Implementation Steps
+      description: Break the implementation into manageable steps.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Developer Testing
+      description: Describe the unit tests, integration tests, and other developer-level verification required.
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_considerations
+    attributes:
+      label: Technical Considerations
+      description: Identify security, performance, compatibility, and maintainability considerations.
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Blockers
+      description: Identify dependencies and potential blockers.
+    validations:
+      required: false
+
+  - type: textarea
+    id: completion_criteria
+    attributes:
+      label: Completion Criteria
+      description: Define what must be completed before the task can move to In Test.
+    validations:
+      required: true

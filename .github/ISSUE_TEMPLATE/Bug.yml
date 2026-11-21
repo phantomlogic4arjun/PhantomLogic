@@ -1,0 +1,104 @@
+name: Bug
+description: Report a defect that violates an existing Requirement.
+title: "[BUG] "
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to report a defect.
+        Every Bug must reference at least one existing Requirement it violates.
+
+  - type: textarea
+    id: affected_requirements
+    attributes:
+      label: Affected Requirements
+      description: List the existing Requirement issue references violated by this Bug.
+      placeholder: |
+        - #123
+        - #124
+    validations:
+      required: true
+
+  - type: textarea
+    id: failed_test_cases
+    attributes:
+      label: Failed Test Cases
+      description: Identify the failed Test Case issue references, if applicable.
+      placeholder: |
+        - #125
+    validations:
+      required: false
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: Clearly describe the defect.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_result
+    attributes:
+      label: Actual Result
+      description: What happens currently?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: Expected Result
+      description: What should happen according to the affected Requirement?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Steps to Reproduce
+      description: Provide clear, repeatable steps to reproduce the defect.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Select the impact of this defect.
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Identify the affected application version, environment, operating system, and relevant configuration.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Include relevant logs, screenshots, error messages, or other diagnostic evidence. Remove secrets and sensitive data.
+    validations:
+      required: false
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds
+      description: Describe any known workaround.
+    validations:
+      required: false

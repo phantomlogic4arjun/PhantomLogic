@@ -1,0 +1,93 @@
+name: Change Request
+description: Propose a change to an existing Requirement or capability.
+title: "[CR] "
+type: Change Request
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose a change to existing functionality or requirements.
+        Every Change Request must reference at least one existing Requirement it affects.
+
+  - type: textarea
+    id: affected_requirements
+    attributes:
+      label: Affected Requirements
+      description: List the existing Requirement issue references affected by this change.
+      placeholder: |
+        - #123
+        - #124
+    validations:
+      required: true
+
+  - type: textarea
+    id: change_summary
+    attributes:
+      label: Proposed Change
+      description: Clearly describe the requested change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: business_justification
+    attributes:
+      label: Business Justification
+      description: Explain why this change is needed and what value it provides.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current Behavior
+      description: Describe the existing behavior or requirement.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed Behavior
+      description: Describe the desired behavior after the change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact_analysis
+    attributes:
+      label: Impact Analysis
+      description: Identify potential impacts on functionality, architecture, security, performance, data, and integrations.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define objectively verifiable conditions for accepting this change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Constraints
+      description: Identify dependencies, assumptions, and constraints.
+    validations:
+      required: false
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and Mitigation
+      description: Identify potential risks and proposed mitigation measures.
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Supporting References
+      description: Include relevant discussions, documents, designs, or external references.
+    validations:
+      required: false

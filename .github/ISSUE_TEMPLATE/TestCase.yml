@@ -1,0 +1,106 @@
+name: Test Case
+description: Define a test case that verifies a Requirement.
+title: "[TEST] "
+type: Test Case
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to define a Test Case linked to a Requirement.
+        Each Test Case should verify one or more clearly identified acceptance criteria.
+
+  - type: textarea
+    id: related_requirement
+    attributes:
+      label: Related Requirement
+      description: Identify the Requirement this Test Case verifies.
+      placeholder: "Requirement issue reference, for example #123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Test Objective
+      description: What behavior or condition does this test verify?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: test_type
+    attributes:
+      label: Test Type
+      options:
+        - Unit
+        - Integration
+        - Functional
+        - System
+        - Acceptance
+        - Security
+        - Performance
+        - Regression
+        - Compatibility
+        - Usability
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Preconditions
+      description: Describe the environment, configuration, and conditions required.
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_data
+    attributes:
+      label: Test Data
+      description: Identify the test data or fixtures required. Do not include secrets or sensitive production data.
+    validations:
+      required: false
+
+  - type: textarea
+    id: test_steps
+    attributes:
+      label: Test Steps
+      description: Provide the exact steps to execute the test.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: Expected Result
+      description: Describe the expected observable outcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria Verified
+      description: Identify the specific Requirement acceptance criteria covered by this test.
+    validations:
+      required: true
+
+  - type: textarea
+    id: automation
+    attributes:
+      label: Automation Details
+      description: Identify the automated test project, test method, or automation approach, if applicable.
+    validations:
+      required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence Requirements
+      description: Describe any logs, screenshots, test reports, or other evidence to retain.
+    validations:
+      required: false

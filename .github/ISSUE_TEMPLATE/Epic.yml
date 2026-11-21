@@ -1,0 +1,58 @@
+name: Epic
+description: Define a major business or product objective.
+title: "[EPIC] "
+type: Epic
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to define an optional Epic that groups related Features.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What major outcome are we trying to achieve?
+      placeholder: Describe the objective.
+    validations:
+      required: true
+
+  - type: textarea
+    id: business_value
+    attributes:
+      label: Business Value
+      description: Why is this Epic important?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe what is included in this Epic.
+    validations:
+      required: true
+
+  - type: textarea
+    id: success_criteria
+    attributes:
+      label: Success Criteria
+      description: How will we determine that this Epic is successful?
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+      description: What is explicitly excluded?
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Constraints
+      description: Identify known dependencies, assumptions, or constraints.
+    validations:
+      required: false

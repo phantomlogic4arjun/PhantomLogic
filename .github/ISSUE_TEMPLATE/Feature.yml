@@ -1,0 +1,61 @@
+name: Feature
+description: Define a product capability to be delivered.
+title: "[FEATURE] "
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to define a Feature within Phantom Logic.
+        Every Feature must have at least one Use Case.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What capability will this Feature deliver?
+    validations:
+      required: true
+
+  - type: textarea
+    id: business_value
+    attributes:
+      label: Business Value
+      description: Why is this Feature needed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe what is included in this Feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define the conditions that must be satisfied for this Feature to be accepted.
+      placeholder: |
+        - Criterion 1
+        - Criterion 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Constraints
+      description: Identify known dependencies, assumptions, and constraints.
+    validations:
+      required: false
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+      description: Identify anything explicitly excluded from this Feature.
+    validations:
+      required: false
