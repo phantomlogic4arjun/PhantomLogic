@@ -1,6 +1,6 @@
 name: Test Case
 description: Define a test case that verifies a Requirement.
-title: "[TEST] "
+title: "[TEST CASE] "
 type: Test Case
 body:
   - type: markdown

@@ -1,6 +1,6 @@
 name: Supporting Task
 description: Define architecture, design, security, or DevOps work.
-title: "[SUPPORT] "
+title: "[SUPPORTING TASK] "
 type: Supporting Task
 body:
   - type: markdown

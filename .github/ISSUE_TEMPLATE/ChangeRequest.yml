@@ -1,6 +1,6 @@
 name: Change Request
 description: Propose a change to an existing Requirement or capability.
-title: "[CR] "
+title: "[CHANGE REQUEST] "
 type: Change Request
 body:
   - type: markdown

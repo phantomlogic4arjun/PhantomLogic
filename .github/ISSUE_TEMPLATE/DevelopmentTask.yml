@@ -1,6 +1,6 @@
 name: Development Task
 description: Define implementation work for a Use Case.
-title: "[DEV] "
+title: "[DEVELOPMENT TASK] "
 type: Development Task
 body:
   - type: markdown
