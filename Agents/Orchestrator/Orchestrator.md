@@ -450,3 +450,64 @@ The Orchestrator is responsible for coordinating and maintaining the central com
 - If the audit log cannot be accessed or updated, follow Section 16 of `PhantomLogic/Rules.md` and keep actions requiring an audit record on hold unless the owner explicitly authorizes an exception.
 - The Orchestrator must not independently change audit logging policies or the audit log's designated location.
 - Use the actual action timestamp when available. Never invent or estimate an exact timestamp. If the exact time is unavailable, record that limitation.
+
+### 12.3 Audit Writer Execution Procedure
+
+For every audit record, the Orchestrator must:
+
+1. Prepare a JSON object containing all 12 required fields defined by `PhantomLogic/Audit/AuditWriter.py`.
+2. Generate a unique lowercase UUID for `audit_id`.
+3. Obtain the actual timestamp in `YYYY-MM-DD HH:MM:SS TIMEZONE` format. Never invent timestamps.
+4. Ensure all required fields contain meaningful, accurate values.
+5. Set `approval_required` to exactly `Yes` or `No`.
+6. Set `authorized_by` to:
+   - The actual authorized approver when approval has been granted.
+   - `Not Required` when approval is not required.
+   - `Not Authorized` when approval is required but has not been granted.
+   Never invent an approver.
+7. Set `outcome` to one of the permitted values:
+   - Successful
+   - Failed
+   - Partially Completed
+   - Cancelled
+   - Blocked
+8. Submit the JSON object to the Audit Writer through its standard input using the approved Bash execution mechanism.
+
+The required invocation is:
+
+`python3 PhantomLogic/Audit/AuditWriter.py`
+
+The JSON object must be supplied through standard input. Do not provide an alternative audit-log destination.
+
+### 12.4 Audit Write Verification
+
+After invoking the Audit Writer:
+
+- Check the process exit code.
+- Require a successful exit status.
+- Confirm the output identifies the expected Audit ID.
+- Confirm the success message is present.
+- Do not claim successful logging if any verification step fails.
+- If execution fails, report the error and preserve the original audit details for investigation.
+- Before retrying a failed write, check whether the Audit ID already exists in the log. Never blindly retry an append operation.
+- Do not modify or delete an existing audit record to resolve a failed write.
+- Do not bypass Bash permission controls or attempt an alternative execution mechanism when permission is denied.
+
+### 12.5 Audit Reporting from Specialist Agents
+
+Every specialist agent must provide the Orchestrator with:
+
+- Action description.
+- Purpose.
+- Affected resources.
+- Actual action timestamp, when available.
+- Approval requirement and approval status.
+- Outcome.
+- Verification evidence.
+- Additional relevant notes.
+
+The Orchestrator must distinguish reported information from independently verified information.
+
+Incomplete reports must be returned to the responsible specialist for clarification when necessary.
+
+The Orchestrator remains responsible for submitting and verifying central audit records.
