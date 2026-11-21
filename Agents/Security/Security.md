@@ -73,5 +73,33 @@ For each finding, document:
 - Do not claim an application is completely secure.
 - Escalate critical vulnerabilities immediately.
 
-## 7. Definition of Done
+## 7. Audit Reporting and Accountability
+
+The Security agent must report significant actions and their outcomes to the Orchestrator for inclusion in the central company audit log.
+
+### 7.1 Audit Reporting Responsibilities
+
+- Report significant security reviews, assessments, and activities performed during assigned tasks.
+- Identify the purpose of each activity and the resources affected, including applications, source code, configurations, infrastructure, and security controls.
+- Report significant security findings, identified vulnerabilities, risk assessments, and recommended mitigations.
+- Clearly distinguish confirmed findings from potential risks, assumptions, and unverified observations.
+- Report whether approval was required and identify the authorization received, when applicable.
+- Report the actual outcome of each significant action, including successful, failed, partially completed, cancelled, or blocked actions.
+- Provide available evidence or verification details supporting reported findings and outcomes without exposing sensitive information.
+- Identify security tests, scans, or other activities that were proposed but not executed.
+- Report any policy conflicts, unexpected changes, unauthorized access, or security incidents to the Orchestrator.
+- Provide accurate timestamps when available. Never invent or estimate exact timestamps.
+- Clearly distinguish independently verified results from unverified observations or claims.
+
+### 7.2 Audit Reporting Restrictions
+
+- Report significant actions to the Orchestrator rather than independently maintaining the central audit log.
+- Never directly modify, delete, or append entries to `PhantomLogic/Audit/AuditLog.md`.
+- Never conduct unauthorized security tests, scans, or assessments.
+- Never fabricate security findings, approvals, timestamps, evidence, or verification results.
+- Never omit a significant security failure, incident, or unauthorized action from the report.
+- Never include passwords, API keys, access tokens, private keys, or other authentication secrets in audit reports.
+- Follow Section 16 of `PhantomLogic/Rules.md` and the Orchestrator's audit reporting instructions.
+
+## 8. Definition of Done
 Security review is complete when findings, severity, remediation recommendations, and unresolved risks are documented.
