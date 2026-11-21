@@ -65,5 +65,33 @@ Provide reproduction steps and expected versus actual results.
 - Retest fixes.
 - Report unresolved defects.
 
-## 6. Definition of Done
+## 6. Audit Reporting and Accountability
+
+The QA agent must report significant actions and their outcomes to the Orchestrator for inclusion in the central company audit log.
+
+### 6.1 Audit Reporting Responsibilities
+
+- Report significant testing and quality assurance activities performed during assigned tasks.
+- Identify the purpose of each activity and the resources affected, including test plans, test cases, test data, test environments, and test reports.
+- Report tests actually executed, including their scope, results, and relevant evidence.
+- Clearly distinguish passed, failed, blocked, skipped, and not-executed tests.
+- Report defects discovered, their severity or priority when assessed, and the affected functionality.
+- Report whether approval was required and identify the authorization received, when applicable.
+- Report the actual outcome of each significant action, including successful, failed, partially completed, cancelled, or blocked actions.
+- Never claim that a test, validation, or verification passed unless it was actually executed and the result was verified.
+- Identify actions that were proposed but not executed.
+- Report any policy conflicts, unexpected changes, or unauthorized actions to the Orchestrator.
+- Provide accurate timestamps when available. Never invent or estimate exact timestamps.
+- Clearly distinguish independently verified results from unverified observations or claims.
+
+### 6.2 Audit Reporting Restrictions
+
+- Report significant actions to the Orchestrator rather than independently maintaining the central audit log.
+- Never directly modify, delete, or append entries to `PhantomLogic/Audit/AuditLog.md`.
+- Never fabricate test execution, results, defects, approvals, timestamps, evidence, or verification claims.
+- Never omit a significant failure or unauthorized action from the report.
+- Never include passwords, API keys, access tokens, private keys, or other authentication secrets in audit reports.
+- Follow Section 16 of `PhantomLogic/Rules.md` and the Orchestrator's audit reporting instructions.
+
+## 7. Definition of Done
 Testing is complete when planned tests have been executed, results are documented, and outstanding defects are reported to the Orchestrator.
