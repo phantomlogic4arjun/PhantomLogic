@@ -1,6 +1,6 @@
 name: Requirement
 description: Define a specific and verifiable system requirement.
-title: "[REQ] "
+title: "[REQUIREMENT] "
 type: Requirement
 body:
   - type: markdown
@@ -22,7 +22,7 @@ body:
   - type: dropdown
     id: requirement_category
     attributes:
-      label: Requirement Category
+      label: Category
       description: Select the primary category.
       options:
         - Functional
