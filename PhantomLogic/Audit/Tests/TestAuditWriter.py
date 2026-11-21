@@ -334,6 +334,39 @@ class TestAuditWriter(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.writer.validate_entry(entry)
 
+    def test_missing_required_fields_rejected(self):
+        fields = self.writer.REQUIRED_FIELDS
+        for field in fields:
+            with self.subTest(field=field):
+                entry = self.create_entry()
+                del entry[field]
+                original_content = self.audit_file.read_bytes()
+                with self.assertRaises(SystemExit):
+                    self.writer.validate_entry(entry)
+                self.assertEqual(self.audit_file.read_bytes(), original_content)
+
+    def test_format_entry_markdown(self):
+        entry = self.create_entry()
+        formatted = self.writer.format_entry(entry)
+        self.assertTrue(formatted.startswith("\n---\n"))
+        self.assertIn(f"### {entry['action_requested']}", formatted)
+        labels = [
+            "Audit ID",
+            "Timestamp",
+            "Requesting Party",
+            "Responsible Agent",
+            "Action Requested",
+            "Purpose",
+            "Affected Resources",
+            "Approval Required",
+            "Authorized By",
+            "Outcome",
+            "Verification",
+            "Additional Notes",
+        ]
+        for label, key in zip(labels, self.writer.REQUIRED_FIELDS):
+            expected_line = f"- **{label}:** {entry[key]}"
+            self.assertIn(expected_line, formatted)
     def test_invalid_approval_status_rejected(self):
 
         entry = self.create_entry()

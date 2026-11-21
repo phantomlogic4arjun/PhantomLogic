@@ -169,6 +169,28 @@ class TestAuditWriterCliContract(unittest.TestCase):
         self.assert_failure(result)
         self.assertEqual(self.log.read_text(), "")
 
+    def test_missing_required_fields_rejected_cli(self):
+        fields = [
+            "audit_id",
+            "timestamp",
+            "requesting_party",
+            "responsible_agent",
+            "action_requested",
+            "purpose",
+            "affected_resources",
+            "approval_required",
+            "authorized_by",
+            "outcome",
+            "verification",
+            "additional_notes",
+        ]
+        for field in fields:
+            with self.subTest(field=field):
+                entry = self.make_entry()
+                del entry[field]
+                result = self.run_writer(entry)
+                self.assert_failure(result)
+                self.assertEqual(self.log.read_text(), "")
     def test_duplicate_audit_id_rejected(self):
         entry = self.make_entry()
 
