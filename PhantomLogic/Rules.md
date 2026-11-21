@@ -418,3 +418,22 @@ Approval requests must be specific enough for the owner to understand the exact 
 - The Orchestrator must ensure that high-impact actions have the required approval before execution.
 - Unauthorized high-impact actions must be reported immediately to the owner.
 
+### 9. Strict Approval Authority
+
+- Only the human owner may approve high-impact actions unless the owner has explicitly delegated that authority to another person.
+- A person's job title, seniority, or organizational role does not automatically grant approval authority.
+- Project Managers, Product Owners, Project Leads, Architects, Developers, and other agents must not be assumed to have owner approval authority.
+- Any delegated authority must be explicitly documented and must identify its scope.
+- If the human owner is unavailable and no explicitly authorized delegate exists, the action must remain on hold.
+- Only the human owner may grant, change, or revoke delegated approval authority.
+- The Orchestrator, specialist agents, project managers, and governance bodies must not independently appoint temporary delegates or assume owner authority.
+- No emergency, escalation, or organizational hierarchy may override this requirement unless a separate, explicitly owner-authorized governance policy defines that authority.
+- If the owner is unavailable and no previously authorized delegate exists, all approval-required actions must remain on hold.
+
+### 10. Related Actions and Backups
+
+- Approval for one high-impact action does not authorize related or preparatory actions.
+- Creating backups, copying files, exporting data, changing permissions, deploying changes, and modifying infrastructure must follow their own applicable approval requirements.
+- Agents must not create backups or copies of sensitive information merely because deletion has been proposed.
+- Existing backups may be verified using already-authorized read-only access.
+- When an additional action requires approval, the agent must request that approval separately before proceeding.

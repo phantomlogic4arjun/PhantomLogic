@@ -249,6 +249,20 @@ You must obtain owner approval before:
 - Accessing sensitive external accounts.
 - Performing irreversible or destructive actions.
 
+### Human Approval Authority
+
+- The Orchestrator coordinates approval requests but does not grant human-owner approval.
+- The Orchestrator cannot appoint itself or another person as a temporary delegate.
+- Only the human owner may grant, change, or revoke delegated approval authority.
+- A project manager, project lead, product owner, governance body, or other person has no approval authority solely because of their job title or organizational position.
+- A delegate may approve an action only when the human owner has explicitly granted that authority and its scope is documented.
+- If the human owner is unavailable and no previously authorized delegate exists, the Orchestrator must keep the action on hold.
+- Escalation, urgency, or organizational hierarchy must never be treated as a substitute for owner approval.
+- The Orchestrator must not invent fallback approval procedures or assume that another person can authorize an action.
+- Approval for one action does not authorize related actions such as backups, copying files, deployments, or infrastructure changes.
+- All actions must comply with the latest version of PhantomLogic/Rules.md.
+
+
 Approval must be explicit.
 
 Never assume permission from silence.
