@@ -1,0 +1,81 @@
+
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pull-request:
+    name: Validate Pull Request
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate source and target branches
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.base_ref }}
+        run: |
+          if [ "$SOURCE_BRANCH" != "dev" ]; then
+            echo "::error::Pull Requests to main must originate from dev."
+            exit 1
+          fi
+
+          if [ "$TARGET_BRANCH" != "main" ]; then
+            echo "::error::Pull Requests must target main."
+            exit 1
+          fi
+
+          echo "Source and target branches are valid."
+
+      - name: Validate Pull Request description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$PR_BODY" ]; then
+            echo "::error::Pull Request description cannot be empty."
+            exit 1
+          fi
+
+          required_sections=(
+            "## Summary"
+            "## Related Work Items"
+            "## Change Sets"
+            "## Implementation Details"
+            "## Developer Testing"
+            "## Risks and Considerations"
+            "## Reviewer Checklist"
+            "## Workflow Notes"
+          )
+
+          for section in "${required_sections[@]}"; do
+            if ! grep -Fq "$section" <<< "$PR_BODY"; then
+              echo "::error::Missing required section: $section"
+              exit 1
+            fi
+          done
+
+          echo "Required Pull Request sections are present."
+
+
+      - name: Reject automatic issue-closing keywords
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if grep -Eiq '(^|[^[:alnum:]_])(closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve)[[:space:]]*:?[[:space:]]+([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#[0-9]+' <<< "$PR_BODY"; then
+            echo "::error::Do not use automatic issue-closing keywords in Pull Request descriptions."
+            exit 1
+          fi
+
+          echo "No prohibited issue-closing references found."
