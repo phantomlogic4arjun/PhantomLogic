@@ -20,6 +20,7 @@ from PhantomLogic.WorkItems.Models.WorkItemState import (
     ReviewResult,
     WorkItemState,
 )
+from dataclasses import replace
 
 
 class TestWorkItemManager(unittest.TestCase):
@@ -542,6 +543,91 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertEqual(set(original), {"EXISTING"})
         self.assertEqual(set(result), {"EXISTING", "NEW"})
         self.assertIs(original["EXISTING"], existing)
+
+    def test_register_work_items_with_events_succeeds(self):
+        work_items = {}
+        additions = (
+            self.create_item(item_id="ITEM-1"),
+            self.create_item(item_id="ITEM-2"),
+        )
+
+        result, errors, events = (
+            self.manager.register_work_items_with_events(
+                work_items,
+                additions,
+                AgentRole.PRODUCT_MANAGER,
+                actor_id="Product Manager",
+            )
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(set(result.keys()), {"ITEM-1", "ITEM-2"})
+        self.assertEqual(len(events), 2)
+
+        self.assertEqual(
+            {event["work_item_id"] for event in events},
+            {"ITEM-1", "ITEM-2"},
+        )
+
+        for event in events:
+            self.assertEqual(event["event_type"], "WORK_ITEM_CREATED")
+            self.assertEqual(event["actor_role"], "Product Manager")
+            self.assertEqual(event["actor_id"], "Product Manager")
+            self.assertEqual(event["outcome"], "Successful")
+
+        self.assertEqual(work_items, {})
+
+    def test_register_work_items_with_events_rejects_blank_actor_id(self):
+        additions = (self.create_item(item_id="ITEM-1"),)
+
+        result, errors, events = (
+            self.manager.register_work_items_with_events(
+                {},
+                additions,
+                AgentRole.PRODUCT_MANAGER,
+                actor_id=" ",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
+
+    def test_register_work_items_with_events_rejects_creator_mismatch(self):
+        item = replace(
+            self.create_item(item_id="ITEM-1"),
+            created_by="Developer",
+        )
+
+        result, errors, events = (
+            self.manager.register_work_items_with_events(
+                {},
+                (item,),
+                AgentRole.PRODUCT_MANAGER,
+                actor_id="Product Manager",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
+
+    def test_register_work_items_with_events_returns_no_events_on_registration_failure(self):
+        existing_item = self.create_item(item_id="ITEM-1")
+        duplicate_item = self.create_item(item_id="ITEM-1")
+
+        result, errors, events = (
+            self.manager.register_work_items_with_events(
+                {"ITEM-1": existing_item},
+                (duplicate_item,),
+                AgentRole.PRODUCT_MANAGER,
+                actor_id="Product Manager",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
 
     # --------------------------------------------------------------
     # Retrieval and validation
