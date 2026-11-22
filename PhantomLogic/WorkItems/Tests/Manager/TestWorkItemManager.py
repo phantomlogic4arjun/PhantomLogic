@@ -14,6 +14,12 @@ from PhantomLogic.WorkItems.Models.WorkItemState import (
 from PhantomLogic.WorkItems.Models.WorkItemType import WorkItemType
 from PhantomLogic.WorkItems.Rules.PermissionRules import AgentRole
 
+from PhantomLogic.WorkItems.Models.WorkItemState import (
+    CodeReviewState,
+    ReviewResult,
+    WorkItemState,
+)
+
 
 class TestWorkItemManager(unittest.TestCase):
 
@@ -1349,10 +1355,581 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertIsNone(result)
         self.assertTrue(errors)
         self.assertEqual(item.state, WorkItemState.IN_WORK)
+    
+
+    def test_requirement_cannot_submit_without_test_case(self):
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+            state=WorkItemState.IN_WORK,
+        )
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1", "DEV-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        dev_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_TEST,
+        )
+
+        work_items = {
+            "REQ-1": requirement,
+            "UC-1": use_case,
+            "DEV-1": dev_task,
+        }
+
+        result, errors = self.manager.submit_for_test(
+            work_items,
+            "REQ-1",
+            AgentRole.WORK_ITEM_MANAGER,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(requirement.state, WorkItemState.IN_WORK)
+
+    def test_requirement_completes_readiness_submission(self):
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+            state=WorkItemState.IN_WORK,
+            relationships=(
+                WorkItemRelationship(
+                    "REQ-1", "TEST-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1", "DEV-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        dev_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_TEST,
+        )
+        test_case = self.create_item(
+            "TEST-1",
+            WorkItemType.TEST_CASE,
+        )
+
+        work_items = {
+            "REQ-1": requirement,
+            "UC-1": use_case,
+            "DEV-1": dev_task,
+            "TEST-1": test_case,
+        }
+
+        result, errors = self.manager.submit_for_test(
+            work_items,
+            "REQ-1",
+            AgentRole.WORK_ITEM_MANAGER,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(result["REQ-1"].state, WorkItemState.IN_TEST)
+
+    def test_use_case_cannot_submit_with_unready_requirement(self):
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.IN_WORK,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1", "DEV-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+            state=WorkItemState.IN_WORK,
+        )
+        dev_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_TEST,
+        )
+
+        work_items = {
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "DEV-1": dev_task,
+        }
+
+        result, errors = self.manager.submit_for_test(
+            work_items,
+            "UC-1",
+            AgentRole.WORK_ITEM_MANAGER,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(use_case.state, WorkItemState.IN_WORK)
+
+    def test_use_case_completes_readiness_submission(self):
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.IN_WORK,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1", "DEV-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+            state=WorkItemState.IN_TEST,
+        )
+        dev_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_TEST,
+        )
+
+        work_items = {
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "DEV-1": dev_task,
+        }
+
+        result, errors = self.manager.submit_for_test(
+            work_items,
+            "UC-1",
+            AgentRole.WORK_ITEM_MANAGER,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(result["UC-1"].state, WorkItemState.IN_TEST)
+
+    def test_feature_cannot_submit_without_approved_code_review(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.IN_WORK,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1", RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "FEATURE-1", "REVIEW-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.IN_TEST,
+        )
+        review_task = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.RESOLVED,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": review_task,
+        }
+
+        result, errors = self.manager.submit_for_test(
+            work_items,
+            "FEATURE-1",
+            AgentRole.WORK_ITEM_MANAGER,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+            security_gate_passed=True,
+            ci_gate_passed=True,
+            review_results={
+                "REVIEW-1": ReviewResult.PENDING,
+            },
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(feature.state, WorkItemState.IN_WORK)
+
+    def test_feature_completes_readiness_submission(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.IN_WORK,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1", RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "FEATURE-1", "REVIEW-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.IN_TEST,
+        )
+        review_task = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.RESOLVED,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": review_task,
+        }
+
+        result, errors = self.manager.submit_for_test(
+            work_items,
+            "FEATURE-1",
+            AgentRole.WORK_ITEM_MANAGER,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+            security_gate_passed=True,
+            ci_gate_passed=True,
+            review_results={
+                "REVIEW-1": ReviewResult.APPROVED,
+            },
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(result["FEATURE-1"].state, WorkItemState.IN_TEST)
+
 
     # --------------------------------------------------------------
     # Resolution
     # --------------------------------------------------------------
+
+
+    def test_feature_cannot_resolve_before_code_review_is_approved(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.IN_TEST,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "FEATURE-1", "REVIEW-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.RESOLVED,
+        )
+
+        review_task = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.RESOLVED,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": review_task,
+        }
+
+        result, errors = self.manager.resolve_work_item(
+            work_items,
+            "FEATURE-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            security_gate_passed=True,
+            ci_gate_passed=True,
+            review_results={
+                "REVIEW-1": ReviewResult.PENDING,
+            },
+            reason="Feature verification passed.",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertTrue(
+            any("Approved review result" in error for error in errors)
+        )
+        self.assertEqual(
+            feature.state,
+            WorkItemState.IN_TEST,
+        )
+
+    def test_feature_cannot_resolve_with_incomplete_use_case(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.IN_TEST,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "FEATURE-1", "REVIEW-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.IN_WORK,
+        )
+
+        review_task = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.RESOLVED,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": review_task,
+        }
+
+        result, errors = self.manager.resolve_work_item(
+            work_items,
+            "FEATURE-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            security_gate_passed=True,
+            ci_gate_passed=True,
+            review_results={
+                "REVIEW-1": ReviewResult.APPROVED,
+            },
+            reason="Feature verification passed.",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertTrue(
+            any("UC-1" in error and "Resolved" in error for error in errors)
+        )
+        self.assertEqual(
+            feature.state,
+            WorkItemState.IN_TEST,
+        )
+
+    def test_feature_completes_full_resolution_lifecycle(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.IN_TEST,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "FEATURE-1", "REVIEW-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.RESOLVED,
+        )
+
+        review_task = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.RESOLVED,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": review_task,
+        }
+
+        result, errors = self.manager.resolve_work_item(
+            work_items,
+            "FEATURE-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            security_gate_passed=True,
+            ci_gate_passed=True,
+            review_results={
+                "REVIEW-1": ReviewResult.APPROVED,
+            },
+            reason="Feature verification passed.",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            result["FEATURE-1"].state,
+            WorkItemState.RESOLVED,
+        )
+        self.assertEqual(
+            feature.state,
+            WorkItemState.IN_TEST,
+        )
+    
+    def test_epic_cannot_resolve_without_features(self):
+        epic = self.create_item(
+            "EPIC-1",
+            WorkItemType.EPIC,
+            state=WorkItemState.IN_TEST,
+        )
+
+        result, errors = self.manager.resolve_work_item(
+            {"EPIC-1": epic},
+            "EPIC-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            reason="Epic verification passed.",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertTrue(
+            any("at least one Feature" in error for error in errors)
+        )
+        self.assertEqual(epic.state, WorkItemState.IN_TEST)
+
+    def test_epic_cannot_resolve_with_unresolved_feature(self):
+        epic = self.create_item(
+            "EPIC-1",
+            WorkItemType.EPIC,
+            state=WorkItemState.IN_TEST,
+            relationships=(
+                WorkItemRelationship(
+                    "EPIC-1",
+                    "FEATURE-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.IN_WORK,
+        )
+
+        work_items = {
+            "EPIC-1": epic,
+            "FEATURE-1": feature,
+        }
+
+        result, errors = self.manager.resolve_work_item(
+            work_items,
+            "EPIC-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            reason="Epic verification passed.",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertTrue(
+            any(
+                "FEATURE-1" in error and "Resolved" in error
+                for error in errors
+            )
+        )
+        self.assertEqual(epic.state, WorkItemState.IN_TEST)
+
+    def test_epic_completes_full_resolution_lifecycle(self):
+        epic = self.create_item(
+            "EPIC-1",
+            WorkItemType.EPIC,
+            state=WorkItemState.IN_TEST,
+            relationships=(
+                WorkItemRelationship(
+                    "EPIC-1",
+                    "FEATURE-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.RESOLVED,
+        )
+
+        work_items = {
+            "EPIC-1": epic,
+            "FEATURE-1": feature,
+        }
+
+        result, errors = self.manager.resolve_work_item(
+            work_items,
+            "EPIC-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            reason="Epic verification passed.",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            result["EPIC-1"].state,
+            WorkItemState.RESOLVED,
+        )
+        self.assertEqual(
+            epic.state,
+            WorkItemState.IN_TEST,
+        )
+
 
     def test_check_resolution_rejects_missing_item(self):
         errors = self.manager.check_resolution(
