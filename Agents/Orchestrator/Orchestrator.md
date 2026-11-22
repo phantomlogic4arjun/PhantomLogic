@@ -506,6 +506,11 @@ Every specialist agent must provide the Orchestrator with:
 - Verification evidence.
 - Additional relevant notes.
 
+- For Work Item operations, require the reporting agent to identify the Work Item ID, Work Item type, operation performed, and outcome. Include before-and-after states when applicable.
+- Preserve the actual responsible agent's identity in the audit record. Do not attribute an agent's action to Work Item Management or to the Orchestrator.
+- Apply the existing AuditWriter schema and audit verification procedure. Do not introduce a separate Work Item audit mechanism.
+
+
 The Orchestrator must distinguish reported information from independently verified information.
 
 Incomplete reports must be returned to the responsible specialist for clarification when necessary.

@@ -305,6 +305,7 @@ class TestAuthorizedWorkPropagation(unittest.TestCase):
                 authorized,
                 "BUG-1",
                 AgentRole.WORK_ITEM_MANAGER,
+                actor_id="Developer-1",
             )
         )
 
@@ -325,6 +326,13 @@ class TestAuthorizedWorkPropagation(unittest.TestCase):
                 "FEATURE-1",
             },
         )
+
+        for event in events:
+            self.assertEqual(event["actor_id"], "Developer-1")
+            self.assertEqual(
+                event["actor_role"],
+                AgentRole.WORK_ITEM_MANAGER.value,
+            )
 
     def test_propagation_reopens_resolved_hierarchy(self):
         work_items = self.create_hierarchy()

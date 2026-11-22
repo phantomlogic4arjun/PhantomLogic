@@ -7,6 +7,7 @@ from PhantomLogic.WorkItems.Models.WorkItemRelationship import (
     RelationshipType,
     WorkItemRelationship,
 )
+
 from PhantomLogic.WorkItems.Models.WorkItemState import (
     CodeReviewState,
     WorkItemState,
@@ -60,6 +61,92 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertIn("ITEM-1", result)
         self.assertIs(result["ITEM-1"], item)
+
+
+    def test_register_change_request_with_events_succeeds(self):
+        requirement = self.create_item(
+            item_id="REQ-1",
+            item_type=WorkItemType.REQUIREMENT,
+        )
+
+        relationship = WorkItemRelationship(
+            source_id="CR-1",
+            target_id="REQ-1",
+            relationship_type=RelationshipType.AFFECTED_REQUIREMENT,
+        )
+
+        change_request = self.create_item(
+            item_id="CR-1",
+            item_type=WorkItemType.CHANGE_REQUEST,
+            relationships=(relationship,),
+        )
+
+        result, errors, events = (
+            self.manager.register_work_item_with_events(
+                {"REQ-1": requirement},
+                change_request,
+                AgentRole.PRODUCT_MANAGER,
+                actor_id="Product Manager",
+            )
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+        self.assertIn("CR-1", result)
+        self.assertEqual(len(events), 1)
+
+        event = events[0]
+
+        self.assertEqual(event["event_type"], "WORK_ITEM_CREATED")
+        self.assertEqual(event["work_item_id"], "CR-1")
+        self.assertEqual(
+            event["work_item_type"],
+            WorkItemType.CHANGE_REQUEST.value,
+        )
+        self.assertEqual(
+            event["actor_role"],
+            AgentRole.PRODUCT_MANAGER.value,
+        )
+        self.assertEqual(event["actor_id"], "Product Manager")
+        self.assertEqual(event["outcome"], "Successful")
+
+    def test_register_change_request_with_events_rejects_unauthorized_role(self):
+        item = self.create_item(
+            item_id="CR-2",
+            item_type=WorkItemType.CHANGE_REQUEST,
+        )
+
+        result, errors, events = (
+            self.manager.register_work_item_with_events(
+                {},
+                item,
+                AgentRole.DEVELOPER,
+                actor_id="Developer",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
+
+    def test_register_change_request_with_events_requires_actor_identity(self):
+        item = self.create_item(
+            item_id="CR-3",
+            item_type=WorkItemType.CHANGE_REQUEST,
+        )
+
+        result, errors, events = (
+            self.manager.register_work_item_with_events(
+                {},
+                item,
+                AgentRole.PRODUCT_MANAGER,
+                actor_id=" ",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
 
     def test_register_work_item_rejects_unauthorized_role(self):
         item = self.create_item()
@@ -364,6 +451,292 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertIsNone(result)
         self.assertTrue(errors)
 
+    def test_add_relationship_with_events_succeeds(self):
+        feature = self.create_item("FEATURE-1")
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+        )
+        code_review = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.PROPOSED,
+        )
+        development_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+        )
+
+        feature = replace_for_test(
+            feature,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "REVIEW-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        use_case = replace_for_test(
+            use_case,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "DEV-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        relationship = WorkItemRelationship(
+            "FEATURE-1",
+            "UC-1",
+            RelationshipType.PARENT_CHILD,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": code_review,
+            "DEV-1": development_task,
+        }
+
+        result, errors, events = self.manager.add_relationship_with_events(
+            work_items,
+            relationship,
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="Product Manager",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+        self.assertIn(relationship, result["FEATURE-1"].relationships)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            events[0]["event_type"],
+            "WORK_ITEM_RELATIONSHIP_ADDED",
+        )
+        self.assertEqual(
+            events[0]["source_work_item_id"],
+            "FEATURE-1",
+        )
+        self.assertEqual(
+            events[0]["target_work_item_id"],
+            "UC-1",
+        )
+        self.assertEqual(
+            events[0]["actor_id"],
+            "Product Manager",
+        )
+        self.assertEqual(events[0]["outcome"], "Successful")
+
+
+
+
+
+    def test_remove_relationship_with_events_succeeds(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "REVIEW-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "DEV-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-2",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        code_review = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.PROPOSED,
+        )
+
+        development_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+        )
+
+        requirement_1 = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+        requirement_2 = self.create_item(
+            "REQ-2",
+            WorkItemType.REQUIREMENT,
+        )
+
+        relationship_to_remove = WorkItemRelationship(
+            "CR-1",
+            "REQ-1",
+            RelationshipType.AFFECTED_REQUIREMENT,
+        )
+        relationship_to_keep = WorkItemRelationship(
+            "CR-1",
+            "REQ-2",
+            RelationshipType.AFFECTED_REQUIREMENT,
+        )
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                relationship_to_remove,
+                relationship_to_keep,
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": code_review,
+            "DEV-1": development_task,
+            "REQ-1": requirement_1,
+            "REQ-2": requirement_2,
+            "CR-1": change_request,
+        }
+
+        result, errors, events = self.manager.remove_relationship_with_events(
+            work_items,
+            relationship_to_remove,
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="Product Manager",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+        self.assertNotIn(
+            relationship_to_remove,
+            result["CR-1"].relationships,
+        )
+        self.assertIn(
+            relationship_to_keep,
+            result["CR-1"].relationships,
+        )
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            events[0]["event_type"],
+            "WORK_ITEM_RELATIONSHIP_REMOVED",
+        )
+        self.assertEqual(events[0]["source_work_item_id"], "CR-1")
+        self.assertEqual(events[0]["target_work_item_id"], "REQ-1")
+        self.assertEqual(events[0]["actor_id"], "Product Manager")
+
+
+
+
+
+    def test_add_relationships_with_events_succeeds(self):
+        feature = self.create_item("FEATURE-1")
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+        )
+        code_review = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.PROPOSED,
+        )
+        development_task = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+        )
+
+        feature = replace_for_test(
+            feature,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "REVIEW-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        use_case = replace_for_test(
+            use_case,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "DEV-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        relationship = WorkItemRelationship(
+            "FEATURE-1",
+            "UC-1",
+            RelationshipType.PARENT_CHILD,
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REVIEW-1": code_review,
+            "DEV-1": development_task,
+        }
+
+        result, errors, events = self.manager.add_relationships_with_events(
+            work_items,
+            (relationship,),
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="Product Manager",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            events[0]["event_type"],
+            "WORK_ITEM_RELATIONSHIP_ADDED",
+        )
+
+    def test_add_relationship_with_events_rejects_missing_actor_id(self):
+        relationship = WorkItemRelationship(
+            "FEATURE-1",
+            "UC-1",
+            RelationshipType.PARENT_CHILD,
+        )
+
+        result, errors, events = self.manager.add_relationship_with_events(
+            {},
+            relationship,
+            AgentRole.PRODUCT_MANAGER,
+            actor_id=" ",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
+
     # --------------------------------------------------------------
     # Authorized Bug propagation
     # --------------------------------------------------------------
@@ -461,6 +834,228 @@ class TestWorkItemManager(unittest.TestCase):
                 WorkItemState.PROPOSED,
             )
 
+    def test_authorized_bug_propagates_new_requirement_after_start(self):
+        feature1 = self.create_item("FEATURE-1", WorkItemType.FEATURE)
+        use_case1 = self.create_item("UC-1", WorkItemType.USE_CASE)
+        requirement1 = self.create_item("REQ-1", WorkItemType.REQUIREMENT)
+
+        feature2 = self.create_item("FEATURE-2", WorkItemType.FEATURE)
+        use_case2 = self.create_item("UC-2", WorkItemType.USE_CASE)
+        requirement2 = self.create_item("REQ-2", WorkItemType.REQUIREMENT)
+
+        bug = self.create_item(
+            "BUG-1",
+            WorkItemType.BUG,
+            relationships=(
+                WorkItemRelationship(
+                    "BUG-1",
+                    "REQ-1",
+                    RelationshipType.VIOLATED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        feature1 = replace_for_test(
+            feature1,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+        use_case1 = replace_for_test(
+            use_case1,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+        feature2 = replace_for_test(
+            feature2,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-2", "UC-2", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+        use_case2 = replace_for_test(
+            use_case2,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-2", "REQ-2", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+
+        work_items = {
+            item.id: item
+            for item in (
+                feature1, use_case1, requirement1,
+                feature2, use_case2, requirement2, bug,
+            )
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "BUG-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved to fix the reported defect.",
+        )
+        self.assertEqual(errors, [])
+
+        started_items, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "BUG-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+        self.assertEqual(errors, [])
+
+        updated_bug = replace_for_test(
+            started_items["BUG-1"],
+            relationships=(
+                *started_items["BUG-1"].relationships,
+                WorkItemRelationship(
+                    "BUG-1",
+                    "REQ-2",
+                    RelationshipType.VIOLATED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        updated_items = dict(started_items)
+        updated_items["BUG-1"] = updated_bug
+
+        result, errors = self.manager.start_authorized_work(
+            updated_items,
+            "BUG-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        for item_id in ("BUG-1", "REQ-1", "UC-1", "FEATURE-1",
+                        "REQ-2", "UC-2", "FEATURE-2"):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+                item_id,
+            )
+
+
+    def test_authorized_change_request_propagates_new_requirement_after_start(self):
+        feature1 = self.create_item("FEATURE-1", WorkItemType.FEATURE)
+        use_case1 = self.create_item("UC-1", WorkItemType.USE_CASE)
+        requirement1 = self.create_item("REQ-1", WorkItemType.REQUIREMENT)
+
+        feature2 = self.create_item("FEATURE-2", WorkItemType.FEATURE)
+        use_case2 = self.create_item("UC-2", WorkItemType.USE_CASE)
+        requirement2 = self.create_item("REQ-2", WorkItemType.REQUIREMENT)
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-1",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        feature1 = replace_for_test(
+            feature1,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+        use_case1 = replace_for_test(
+            use_case1,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+        feature2 = replace_for_test(
+            feature2,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-2", "UC-2", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+        use_case2 = replace_for_test(
+            use_case2,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-2", "REQ-2", RelationshipType.PARENT_CHILD
+                ),
+            ),
+        )
+
+        work_items = {
+            item.id: item
+            for item in (
+                feature1, use_case1, requirement1,
+                feature2, use_case2, requirement2, change_request,
+            )
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "CR-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved to implement the requested change.",
+        )
+        self.assertEqual(errors, [])
+
+        started_items, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+        self.assertEqual(errors, [])
+
+        updated_cr = replace_for_test(
+            started_items["CR-1"],
+            relationships=(
+                *started_items["CR-1"].relationships,
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-2",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        updated_items = dict(started_items)
+        updated_items["CR-1"] = updated_cr
+
+        result, errors = self.manager.start_authorized_work(
+            updated_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        for item_id in ("CR-1", "REQ-1", "UC-1", "FEATURE-1",
+                        "REQ-2", "UC-2", "FEATURE-2"):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+                item_id,
+            )
+
+
 
     def test_authorized_work_with_events_returns_propagation_events(self):
         feature = self.create_item("FEATURE-1", WorkItemType.FEATURE)
@@ -515,6 +1110,7 @@ class TestWorkItemManager(unittest.TestCase):
             authorized_items,
             "BUG-1",
             AgentRole.WORK_ITEM_MANAGER,
+            actor_id="Developer-1",
         )
 
         self.assertEqual(errors, [])
@@ -564,6 +1160,7 @@ class TestWorkItemManager(unittest.TestCase):
             work_items,
             "BUG-1",
             AgentRole.WORK_ITEM_MANAGER,
+            actor_id="Developer-1",
         )
 
         self.assertIsNone(result)
@@ -1118,7 +1715,7 @@ class TestWorkItemManager(unittest.TestCase):
 
         work_items = {
             "REVIEW-1": review_task,
-        }        
+        }
 
         # 1. Reviewer starts the Code Review Task.
         work_items, errors = self.manager.transition_state(
@@ -1410,6 +2007,64 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertIsNone(result)
         self.assertTrue(errors)
 
+
+    def test_transition_state_with_events_succeeds(self):
+        item = self.create_item(
+            state=WorkItemState.IN_WORK,
+        )
+
+        result, errors, events = (
+            self.manager.transition_state_with_events(
+                {"ITEM-1": item},
+                "ITEM-1",
+                WorkItemState.BLOCKED,
+                AgentRole.DEVELOPER,
+                actor_id="Developer-1",
+                reason="Waiting for a dependency",
+            )
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            result["ITEM-1"].state,
+            WorkItemState.BLOCKED,
+        )
+        self.assertEqual(
+            events[0]["actor_id"],
+            "Developer-1",
+        )
+        self.assertEqual(
+            events[0]["previous_state"],
+            WorkItemState.IN_WORK.value,
+        )
+        self.assertEqual(
+            events[0]["new_state"],
+            WorkItemState.BLOCKED.value,
+        )
+
+    def test_transition_state_with_events_requires_actor_id(self):
+        item = self.create_item(
+            state=WorkItemState.IN_WORK,
+        )
+
+        result, errors, events = (
+            self.manager.transition_state_with_events(
+                {"ITEM-1": item},
+                "ITEM-1",
+                WorkItemState.BLOCKED,
+                AgentRole.DEVELOPER,
+                actor_id=" ",
+                reason="Waiting for a dependency",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
+
+
+
     # --------------------------------------------------------------
     # Readiness and submission
     # --------------------------------------------------------------
@@ -1522,7 +2177,64 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertIsNone(result)
         self.assertTrue(errors)
         self.assertEqual(item.state, WorkItemState.IN_WORK)
-    
+
+
+    def test_submit_for_test_with_events_succeeds(self):
+        item = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_WORK,
+        )
+
+        result, errors, events = (
+            self.manager.submit_for_test_with_events(
+                {"DEV-1": item},
+                "DEV-1",
+                AgentRole.DEVELOPER,
+                actor_id="Developer-1",
+                implementation_complete=True,
+                changes_in_main=True,
+                main_build_available=True,
+                review_gates_satisfied=True,
+                security_gate_passed=True,
+                ci_gate_passed=True,
+            )
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            result["DEV-1"].state,
+            WorkItemState.IN_TEST,
+        )
+        self.assertEqual(
+            events[0]["actor_id"],
+            "Developer-1",
+        )
+        self.assertEqual(
+            events[0]["event_type"],
+            "WORK_ITEM_SUBMITTED_FOR_TEST",
+        )
+
+    def test_submit_for_test_with_events_requires_actor_id(self):
+        item = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_WORK,
+        )
+
+        result, errors, events = (
+            self.manager.submit_for_test_with_events(
+                {"DEV-1": item},
+                "DEV-1",
+                AgentRole.DEVELOPER,
+                actor_id=" ",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
 
     def test_requirement_cannot_submit_without_test_case(self):
         requirement = self.create_item(
@@ -1985,7 +2697,7 @@ class TestWorkItemManager(unittest.TestCase):
             feature.state,
             WorkItemState.IN_TEST,
         )
-    
+
     def test_epic_cannot_resolve_without_features(self):
         epic = self.create_item(
             "EPIC-1",
@@ -2139,6 +2851,60 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertTrue(errors)
         self.assertEqual(item.state, WorkItemState.IN_TEST)
 
+
+    def test_resolve_work_item_with_events_succeeds(self):
+        item = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_TEST,
+        )
+
+        result, errors, events = (
+            self.manager.resolve_work_item_with_events(
+                {"DEV-1": item},
+                "DEV-1",
+                AgentRole.QA,
+                actor_id="QA-1",
+                verification_passed=True,
+                acceptance_criteria_met=True,
+                reason="QA verification passed.",
+            )
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            result["DEV-1"].state,
+            WorkItemState.RESOLVED,
+        )
+        self.assertEqual(
+            events[0]["actor_id"],
+            "QA-1",
+        )
+        self.assertEqual(
+            events[0]["event_type"],
+            "WORK_ITEM_RESOLVED",
+        )
+
+    def test_resolve_work_item_with_events_requires_actor_id(self):
+        item = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+            state=WorkItemState.IN_TEST,
+        )
+
+        result, errors, events = (
+            self.manager.resolve_work_item_with_events(
+                {"DEV-1": item},
+                "DEV-1",
+                AgentRole.QA,
+                actor_id=" ",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
 
 def replace_for_test(item, **changes):
     from dataclasses import replace

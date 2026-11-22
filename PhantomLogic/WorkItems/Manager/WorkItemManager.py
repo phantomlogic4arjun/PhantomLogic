@@ -82,6 +82,72 @@ class WorkItemManager:
         )
 
     @classmethod
+    def register_work_item_with_events(
+        cls,
+        work_items: Mapping[str, WorkItem],
+        work_item: WorkItem,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+    ) -> tuple[
+        dict[str, WorkItem] | None,
+        list[str],
+        tuple[dict, ...],
+    ]:
+        """
+        Register one work item and return its audit event.
+
+        The manager does not write to the audit log.
+        The Orchestrator is responsible for submitting events
+        to AuditWriter.
+        """
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
+
+        if not isinstance(work_item, WorkItem):
+            return (
+                None,
+                ["Work item must be a WorkItem instance."],
+                (),
+            )
+
+        if work_item.created_by != actor_id.strip():
+            return (
+                None,
+                [
+                    "Work item creator must match the acting agent identity."
+                ],
+                (),
+            )
+
+        result, errors = cls.register_work_item(
+            work_items,
+            work_item,
+            actor_role,
+        )
+
+        if errors:
+            return None, errors, ()
+
+        registered_item = result[work_item.id]
+
+        event = {
+            "event_type": "WORK_ITEM_CREATED",
+            "work_item_id": registered_item.id,
+            "work_item_type": registered_item.work_item_type.value,
+            "actor_role": actor_role.value,
+            "actor_id": actor_id.strip(),
+            "title": registered_item.title,
+            "initial_state": registered_item.state.value,
+            "created_at": registered_item.created_at.isoformat(),
+            "outcome": "Successful",
+        }
+
+        return result, [], (event,)
+
+
+    @classmethod
     def register_work_items(
         cls,
         work_items: Mapping[str, WorkItem],
@@ -651,6 +717,8 @@ class WorkItemManager:
         work_items: Mapping[str, WorkItem],
         work_item_id: str,
         actor_role: AgentRole,
+        *,
+        actor_id: str,
     ) -> tuple[
         dict[str, WorkItem] | None,
         list[str],
@@ -660,7 +728,11 @@ class WorkItemManager:
         Propagation operation with separate audit-event output.
 
         The manager does not write to the audit log.
+        The actor_id identifies the agent initiating propagation.
         """
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
 
         result, errors = self.start_authorized_work(
             work_items,
@@ -697,6 +769,8 @@ class WorkItemManager:
                 "source_work_item_type": source.work_item_type.value,
                 "work_item_id": item_id,
                 "work_item_type": after.work_item_type.value,
+                "actor_role": actor_role.value,
+                "actor_id": actor_id.strip(),
                 "previous_state": before.state.value,
                 "new_state": after.state.value,
                 "blocked_return_state": (
@@ -845,6 +919,137 @@ class WorkItemManager:
             work_items,
             relationships,
             actor_role,
+        )
+
+    @classmethod
+    def _relationship_changes_with_events(
+        cls,
+        work_items: Mapping[str, WorkItem],
+        relationships: Iterable[WorkItemRelationship],
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+        remove: bool,
+    ) -> tuple[
+        dict[str, WorkItem] | None,
+        list[str],
+        tuple[dict, ...],
+    ]:
+        """Apply relationship changes and return audit events."""
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
+
+        try:
+            requested = tuple(relationships)
+        except TypeError:
+            return None, [
+                "Relationships must be an iterable collection."
+            ], ()
+
+        if not requested:
+            return None, [
+                "At least one relationship change is required."
+            ], ()
+
+        if remove:
+            result, errors = WorkItemRelationshipManager.remove_relationships(
+                work_items,
+                requested,
+                actor_role,
+            )
+            event_type = "WORK_ITEM_RELATIONSHIP_REMOVED"
+        else:
+            result, errors = WorkItemRelationshipManager.add_relationships(
+                work_items,
+                requested,
+                actor_role,
+            )
+            event_type = "WORK_ITEM_RELATIONSHIP_ADDED"
+
+        if errors:
+            return None, errors, ()
+
+        occurred_at = datetime.now(timezone.utc).isoformat()
+
+        events = tuple(
+            {
+                "event_type": event_type,
+                "source_work_item_id": relationship.source_id,
+                "target_work_item_id": relationship.target_id,
+                "relationship_type": relationship.relationship_type.value,
+                "actor_role": actor_role.value,
+                "actor_id": actor_id.strip(),
+                "occurred_at": occurred_at,
+                "outcome": "Successful",
+            }
+            for relationship in requested
+        )
+
+        return result, [], events
+
+    def add_relationship_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        relationship: WorkItemRelationship,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+    ):
+        return self._relationship_changes_with_events(
+            work_items,
+            (relationship,),
+            actor_role,
+            actor_id=actor_id,
+            remove=False,
+        )
+
+    def add_relationships_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        relationships: Iterable[WorkItemRelationship],
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+    ):
+        return self._relationship_changes_with_events(
+            work_items,
+            relationships,
+            actor_role,
+            actor_id=actor_id,
+            remove=False,
+        )
+
+    def remove_relationship_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        relationship: WorkItemRelationship,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+    ):
+        return self._relationship_changes_with_events(
+            work_items,
+            (relationship,),
+            actor_role,
+            actor_id=actor_id,
+            remove=True,
+        )
+
+    def remove_relationships_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        relationships: Iterable[WorkItemRelationship],
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+    ):
+        return self._relationship_changes_with_events(
+            work_items,
+            relationships,
+            actor_role,
+            actor_id=actor_id,
+            remove=True,
         )
 
     # ------------------------------------------------------------------
@@ -1093,6 +1298,82 @@ class WorkItemManager:
 
         return candidate, []
 
+
+
+    def transition_state_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        work_item_id: str,
+        target_state: WorkItemState | CodeReviewState,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+        reason: str | None = None,
+        work_authorized: bool = False,
+        implementation_ready: bool = False,
+        verification_passed: bool = False,
+        completion_criteria_met: bool = False,
+        review_approved: bool = False,
+        related_developer_id: str | None = None,
+        previous_state: WorkItemState | None = None,
+    ) -> tuple[
+        dict[str, WorkItem] | None,
+        list[str],
+        tuple[dict, ...],
+    ]:
+        """Transition work state and return an audit event."""
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
+
+        item = work_items.get(work_item_id)
+
+        if item is None:
+            return (
+                None,
+                [f"Work item '{work_item_id}' does not exist."],
+                (),
+            )
+
+        result, errors = self.transition_state(
+            work_items,
+            work_item_id,
+            target_state,
+            actor_role,
+            reason=reason,
+            work_authorized=work_authorized,
+            implementation_ready=implementation_ready,
+            verification_passed=verification_passed,
+            completion_criteria_met=completion_criteria_met,
+            review_approved=review_approved,
+            actor_id=actor_id.strip(),
+            related_developer_id=related_developer_id,
+            previous_state=previous_state,
+        )
+
+        if errors:
+            return None, errors, ()
+
+        updated_item = result[work_item_id]
+
+        event = {
+            "event_type": "WORK_ITEM_STATE_TRANSITIONED",
+            "work_item_id": updated_item.id,
+            "work_item_type": updated_item.work_item_type.value,
+            "actor_role": actor_role.value,
+            "actor_id": actor_id.strip(),
+            "previous_state": item.state.value,
+            "new_state": updated_item.state.value,
+            "reason": reason,
+            "occurred_at": updated_item.updated_at.isoformat(),
+            "outcome": "Successful",
+        }
+
+        return result, [], (event,)
+
+
+
+
     @staticmethod
     def _permission_for_transition(
         work_item: WorkItem,
@@ -1223,6 +1504,69 @@ class WorkItemManager:
             implementation_ready=True,
         )
 
+    def submit_for_test_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        work_item_id: str,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+        implementation_complete: bool = False,
+        changes_in_main: bool = False,
+        main_build_available: bool = False,
+        review_gates_satisfied: bool = False,
+        review_results=None,
+        security_gate_passed: bool = False,
+        ci_gate_passed: bool = False,
+    ) -> tuple[
+        dict[str, WorkItem] | None,
+        list[str],
+        tuple[dict, ...],
+    ]:
+        """Submit work for testing and return an audit event."""
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
+
+        item = work_items.get(work_item_id)
+
+        if item is None:
+            return None, [
+                f"Work item '{work_item_id}' does not exist."
+            ], ()
+
+        result, errors = self.submit_for_test(
+            work_items,
+            work_item_id,
+            actor_role,
+            implementation_complete=implementation_complete,
+            changes_in_main=changes_in_main,
+            main_build_available=main_build_available,
+            review_gates_satisfied=review_gates_satisfied,
+            review_results=review_results,
+            security_gate_passed=security_gate_passed,
+            ci_gate_passed=ci_gate_passed,
+        )
+
+        if errors:
+            return None, errors, ()
+
+        updated_item = result[work_item_id]
+
+        event = {
+            "event_type": "WORK_ITEM_SUBMITTED_FOR_TEST",
+            "work_item_id": updated_item.id,
+            "work_item_type": updated_item.work_item_type.value,
+            "actor_role": actor_role.value,
+            "actor_id": actor_id.strip(),
+            "previous_state": item.state.value,
+            "new_state": updated_item.state.value,
+            "occurred_at": updated_item.updated_at.isoformat(),
+            "outcome": "Successful",
+        }
+
+        return result, [], (event,)
+
     # ------------------------------------------------------------------
     # Resolution
     # ------------------------------------------------------------------
@@ -1302,3 +1646,71 @@ class WorkItemManager:
             verification_passed=verification_passed,
             completion_criteria_met=acceptance_criteria_met,
         )
+
+
+
+    def resolve_work_item_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        work_item_id: str,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+        verification_passed: bool = False,
+        acceptance_criteria_met: bool = False,
+        passed_test_case_ids=frozenset(),
+        review_results=None,
+        security_gate_passed: bool = False,
+        ci_gate_passed: bool = False,
+        reason: str | None = None,
+    ) -> tuple[
+        dict[str, WorkItem] | None,
+        list[str],
+        tuple[dict, ...],
+    ]:
+        """Resolve a work item and return an audit event."""
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
+
+        item = work_items.get(work_item_id)
+
+        if item is None:
+            return None, [
+                f"Work item '{work_item_id}' does not exist."
+            ], ()
+
+        result, errors = self.resolve_work_item(
+            work_items,
+            work_item_id,
+            actor_role,
+            verification_passed=verification_passed,
+            acceptance_criteria_met=acceptance_criteria_met,
+            passed_test_case_ids=passed_test_case_ids,
+            review_results=review_results,
+            security_gate_passed=security_gate_passed,
+            ci_gate_passed=ci_gate_passed,
+            reason=reason,
+        )
+
+        if errors:
+            return None, errors, ()
+
+        updated_item = result[work_item_id]
+
+        event = {
+            "event_type": "WORK_ITEM_RESOLVED",
+            "work_item_id": updated_item.id,
+            "work_item_type": updated_item.work_item_type.value,
+            "actor_role": actor_role.value,
+            "actor_id": actor_id.strip(),
+            "previous_state": item.state.value,
+            "new_state": updated_item.state.value,
+            "reason": reason,
+            "occurred_at": updated_item.updated_at.isoformat(),
+            "outcome": "Successful",
+        }
+
+        return result, [], (event,)
+
+

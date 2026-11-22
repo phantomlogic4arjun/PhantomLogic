@@ -496,6 +496,17 @@ Approval requests must be specific enough for the owner to understand the exact 
 - Delegating work does not remove the responsibility to report and document the work performed.
 - Failed, incomplete, or unauthorized actions must be documented and escalated appropriately.
 
+
+### 16.6.1 Work Item Audit Responsibility
+
+- Any agent performing an operation that creates, modifies, authorizes, transitions, or resolves a Work Item must report the action and its outcome to the Orchestrator for auditing.
+- The audit report must identify the actual agent that performed the action. The Orchestrator must not be identified as the actor merely because it submits the audit record.
+- Work Item Management is a shared subsystem, not an autonomous agent. It must not write audit records directly.
+- The Orchestrator remains the sole interface to the approved AuditWriter.
+- Work Item audit reports must identify the affected Work Item, the operation performed, and its outcome. Include relevant state changes and failure details when applicable.
+- If audit submission fails, the Orchestrator must follow the existing audit failure and verification procedures. It must not claim that the action was successfully audited until the record is verified.
+
+
 ### 16.7 Audit Review
 
 - The human owner may request an audit record or review of any company action.
