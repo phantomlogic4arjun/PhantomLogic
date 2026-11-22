@@ -94,6 +94,19 @@ Code must be organized according to responsibility.
 - Prefer composition where it produces a simpler and more maintainable design.
 - Avoid circular dependencies.
 
+### 4.4 Collection Mutability
+
+Developers must choose collection types according to whether the data is intended to be modified.
+
+- Prefer immutable collection types when data should not be modified in place.
+- In Python, use tuples for collections that should remain unchanged after creation.
+- Avoid mutable default arguments. Use appropriate default factories when mutable collections are required.
+- Do not expose mutable internal collections when callers should not be able to modify them directly.
+- When a collection must change, perform the change through the component responsible for validating and authorizing that change.
+- Use mutable collections only when their mutability is required by the design.
+
+Immutability must support clear ownership, predictable behavior, and controlled changes. It should not be introduced where it adds unnecessary complexity.
+
 ## 5. Readability and Maintainability
 
 Code must be understandable to another Developer who did not write it.

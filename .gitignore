@@ -38,3 +38,6 @@ release/
 
 # Logs
 *.log
+
+# Coverage data
+.coverage

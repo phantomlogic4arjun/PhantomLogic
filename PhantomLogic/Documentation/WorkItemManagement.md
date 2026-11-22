@@ -84,6 +84,29 @@ This includes:
 - Blocked and reopened work.
 - Resolution and removal.
 
+### 2.5 Immutable Work Item Collections
+
+Work item collections must use immutable data structures when their contents should not be modified directly.
+
+The following collections must be immutable:
+
+- Work item relationships.
+- Acceptance criteria.
+- Audit references.
+
+The Work Item Manager is responsible for managing changes to these collections.
+
+When an authorized operation changes a collection:
+
+- The Work Item Manager must validate the requested change.
+- A new collection value must be created rather than modifying the existing collection in place.
+- Relationship changes must be checked against the relationship rules defined in this document.
+- Significant changes must be recorded through the central audit mechanism.
+
+Agents and external components must not directly modify these collections.
+
+Immutability supports predictable behavior, controlled ownership, and reliable auditability. It does not replace authorization or business-rule validation.
+
 ## 3. Work Item Types and Hierarchy
 
 The system supports the following work item types.
