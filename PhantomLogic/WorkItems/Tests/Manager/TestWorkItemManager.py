@@ -461,6 +461,116 @@ class TestWorkItemManager(unittest.TestCase):
                 WorkItemState.PROPOSED,
             )
 
+
+    def test_authorized_work_with_events_returns_propagation_events(self):
+        feature = self.create_item("FEATURE-1", WorkItemType.FEATURE)
+        use_case = self.create_item("UC-1", WorkItemType.USE_CASE)
+        requirement = self.create_item("REQ-1", WorkItemType.REQUIREMENT)
+        bug = self.create_item(
+            "BUG-1",
+            WorkItemType.BUG,
+            relationships=(
+                WorkItemRelationship(
+                    "BUG-1",
+                    "REQ-1",
+                    RelationshipType.VIOLATED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        feature = replace_for_test(
+            feature,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1", "UC-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+        use_case = replace_for_test(
+            use_case,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1", "REQ-1", RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "BUG-1": bug,
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "BUG-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved to fix the reported defect.",
+        )
+        self.assertEqual(errors, [])
+
+        result, errors, events = self.manager.start_authorized_work_with_events(
+            authorized_items,
+            "BUG-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+        self.assertEqual(len(events), 4)
+
+        event_by_id = {
+            event["work_item_id"]: event
+            for event in events
+        }
+
+        for item_id in ("BUG-1", "REQ-1", "UC-1", "FEATURE-1"):
+            self.assertIn(item_id, event_by_id)
+            self.assertEqual(
+                event_by_id[item_id]["event_type"],
+                "AUTHORIZED_WORK_PROPAGATED",
+            )
+            self.assertEqual(
+                event_by_id[item_id]["previous_state"],
+                WorkItemState.PROPOSED.value,
+            )
+            self.assertEqual(
+                event_by_id[item_id]["new_state"],
+                WorkItemState.IN_WORK.value,
+            )
+            self.assertEqual(
+                event_by_id[item_id]["source_work_item_id"],
+                "BUG-1",
+            )
+
+    def test_authorized_work_with_events_returns_no_events_on_failure(self):
+        bug = self.create_item(
+            "BUG-1",
+            WorkItemType.BUG,
+            relationships=(
+                WorkItemRelationship(
+                    "BUG-1",
+                    "MISSING-REQ",
+                    RelationshipType.VIOLATED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {"BUG-1": bug}
+
+        result, errors, events = self.manager.start_authorized_work_with_events(
+            work_items,
+            "BUG-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
+
+
     def test_unauthorized_bug_cannot_propagate(self):
         feature = self.create_item(
             "FEATURE-1",
