@@ -1180,7 +1180,7 @@ class WorkItemManager:
         errors = self.check_readiness(
             work_items,
             work_item_id,
-            actor_role,
+            AgentRole.WORK_ITEM_MANAGER,
             implementation_complete=implementation_complete,
             changes_in_main=changes_in_main,
             main_build_available=main_build_available,

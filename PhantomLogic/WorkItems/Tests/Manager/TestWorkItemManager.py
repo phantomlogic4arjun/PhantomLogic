@@ -7,14 +7,12 @@ from PhantomLogic.WorkItems.Models.WorkItemRelationship import (
     RelationshipType,
     WorkItemRelationship,
 )
-from PhantomLogic.WorkItems.Models.WorkItemState import WorkItemState
-from PhantomLogic.WorkItems.Models.WorkItemType import WorkItemType
-from PhantomLogic.WorkItems.Rules.PermissionRules import AgentRole
-
 from PhantomLogic.WorkItems.Models.WorkItemState import (
     CodeReviewState,
     WorkItemState,
 )
+from PhantomLogic.WorkItems.Models.WorkItemType import WorkItemType
+from PhantomLogic.WorkItems.Rules.PermissionRules import AgentRole
 
 
 class TestWorkItemManager(unittest.TestCase):
@@ -272,7 +270,6 @@ class TestWorkItemManager(unittest.TestCase):
             WorkItemType.DEVELOPMENT_TASK,
         )
 
-        # Feature owns its child relationships.
         feature = replace_for_test(
             feature,
             relationships=(
@@ -284,7 +281,6 @@ class TestWorkItemManager(unittest.TestCase):
             ),
         )
 
-        # Use Case owns its Development Task relationship.
         use_case = replace_for_test(
             use_case,
             relationships=(
@@ -321,7 +317,6 @@ class TestWorkItemManager(unittest.TestCase):
             result["FEATURE-1"].relationships,
         )
 
-        # Original collection and objects remain unchanged.
         self.assertNotIn(
             relationship,
             work_items["FEATURE-1"].relationships,
@@ -336,16 +331,13 @@ class TestWorkItemManager(unittest.TestCase):
             "REQ-1",
             WorkItemType.REQUIREMENT,
         )
-        test_case = self.create_item(
-            "TEST-1",
-            WorkItemType.TEST_CASE,
-        )
 
         relationship = WorkItemRelationship(
             "TEST-1",
             "REQ-1",
             RelationshipType.PARENT_CHILD,
         )
+
         test_case = self.create_item(
             "TEST-1",
             WorkItemType.TEST_CASE,
@@ -367,6 +359,637 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertTrue(errors)
 
     # --------------------------------------------------------------
+    # Authorized Bug propagation
+    # --------------------------------------------------------------
+
+    def test_authorized_bug_reopens_affected_hierarchy(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+        )
+
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+
+        bug = self.create_item(
+            "BUG-1",
+            WorkItemType.BUG,
+            relationships=(
+                WorkItemRelationship(
+                    "BUG-1",
+                    "REQ-1",
+                    RelationshipType.VIOLATED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        feature = replace_for_test(
+            feature,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = replace_for_test(
+            use_case,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "BUG-1": bug,
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "BUG-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved to fix the reported defect.",
+        )
+
+        self.assertEqual(errors, [])
+
+        result, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "BUG-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        for item_id in (
+            "BUG-1",
+            "REQ-1",
+            "UC-1",
+            "FEATURE-1",
+        ):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+            )
+
+        for item_id, original in work_items.items():
+            self.assertEqual(
+                original.state,
+                WorkItemState.PROPOSED,
+            )
+
+    def test_unauthorized_bug_cannot_propagate(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+
+        bug = self.create_item(
+            "BUG-1",
+            WorkItemType.BUG,
+            relationships=(
+                WorkItemRelationship(
+                    "BUG-1",
+                    "REQ-1",
+                    RelationshipType.VIOLATED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "BUG-1": bug,
+        }
+
+        result, errors = self.manager.start_authorized_work(
+            work_items,
+            "BUG-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+
+        for item in work_items.values():
+            self.assertEqual(
+                item.state,
+                WorkItemState.PROPOSED,
+            )
+
+    # --------------------------------------------------------------
+    # Authorized Change Request propagation
+    # --------------------------------------------------------------
+
+    def test_authorized_change_request_reopens_affected_hierarchy(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-1",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "CR-1": change_request,
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "CR-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved change to the requirement.",
+        )
+
+        self.assertEqual(errors, [])
+
+        result, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        for item_id in (
+            "CR-1",
+            "REQ-1",
+            "UC-1",
+            "FEATURE-1",
+        ):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+            )
+
+        for item in work_items.values():
+            self.assertEqual(
+                item.state,
+                WorkItemState.PROPOSED,
+            )
+
+    def test_change_request_reopens_multiple_requirements(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-2",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement_1 = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+
+        requirement_2 = self.create_item(
+            "REQ-2",
+            WorkItemType.REQUIREMENT,
+        )
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-1",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-2",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement_1,
+            "REQ-2": requirement_2,
+            "CR-1": change_request,
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "CR-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved change affecting two requirements.",
+        )
+
+        self.assertEqual(errors, [])
+
+        result, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        for item_id in (
+            "CR-1",
+            "REQ-1",
+            "REQ-2",
+            "UC-1",
+            "FEATURE-1",
+        ):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+            )
+
+    def test_unauthorized_change_request_cannot_propagate(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-1",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "CR-1": change_request,
+        }
+
+        result, errors = self.manager.start_authorized_work(
+            work_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+
+        for item in work_items.values():
+            self.assertEqual(
+                item.state,
+                WorkItemState.PROPOSED,
+            )
+
+    def test_authorized_change_request_preserves_blocked_requirement(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+        )
+
+        requirement = replace_for_test(
+            requirement,
+            state=WorkItemState.BLOCKED,
+            blocked_return_state=WorkItemState.IN_TEST,
+        )
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-1",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "CR-1": change_request,
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "CR-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved change affecting blocked requirement.",
+        )
+
+        self.assertEqual(errors, [])
+
+        result, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        self.assertEqual(
+            result["REQ-1"].state,
+            WorkItemState.BLOCKED,
+        )
+
+        self.assertEqual(
+            result["REQ-1"].blocked_return_state,
+            WorkItemState.IN_WORK,
+        )
+
+        self.assertEqual(
+            result["UC-1"].state,
+            WorkItemState.IN_WORK,
+        )
+
+        self.assertEqual(
+            result["FEATURE-1"].state,
+            WorkItemState.IN_WORK,
+        )
+
+        # Unblocking must restore the state assigned by propagation.
+        unblocked_items, errors = self.manager.transition_state(
+            result,
+            "REQ-1",
+            WorkItemState.IN_WORK,
+            AgentRole.WORK_ITEM_MANAGER,
+            reason="Dependency resolved",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(unblocked_items)
+
+        unblocked_requirement = unblocked_items["REQ-1"]
+
+        self.assertEqual(
+            unblocked_requirement.state,
+            WorkItemState.IN_WORK,
+        )
+        self.assertIsNone(
+            unblocked_requirement.blocked_return_state,
+        )
+        self.assertIsNone(
+            unblocked_requirement.block_reason,
+        )
+
+        self.assertEqual(
+            requirement.state,
+            WorkItemState.BLOCKED,
+        )
+        self.assertEqual(
+            requirement.blocked_return_state,
+            WorkItemState.IN_TEST,
+        )
+
+    def test_authorized_change_request_reopens_resolved_hierarchy(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+            state=WorkItemState.RESOLVED,
+            relationships=(
+                WorkItemRelationship(
+                    "FEATURE-1",
+                    "UC-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        use_case = self.create_item(
+            "UC-1",
+            WorkItemType.USE_CASE,
+            state=WorkItemState.RESOLVED,
+            relationships=(
+                WorkItemRelationship(
+                    "UC-1",
+                    "REQ-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement = self.create_item(
+            "REQ-1",
+            WorkItemType.REQUIREMENT,
+            state=WorkItemState.RESOLVED,
+        )
+
+        change_request = self.create_item(
+            "CR-1",
+            WorkItemType.CHANGE_REQUEST,
+            relationships=(
+                WorkItemRelationship(
+                    "CR-1",
+                    "REQ-1",
+                    RelationshipType.AFFECTED_REQUIREMENT,
+                ),
+            ),
+        )
+
+        work_items = {
+            "FEATURE-1": feature,
+            "UC-1": use_case,
+            "REQ-1": requirement,
+            "CR-1": change_request,
+        }
+
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "CR-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved change to previously resolved work.",
+        )
+
+        self.assertEqual(errors, [])
+
+        result, errors = self.manager.start_authorized_work(
+            authorized_items,
+            "CR-1",
+            AgentRole.WORK_ITEM_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        for item_id in (
+            "CR-1",
+            "REQ-1",
+            "UC-1",
+            "FEATURE-1",
+        ):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+            )
+
+        # Original resolved items must remain unchanged.
+        for item_id in (
+            "FEATURE-1",
+            "UC-1",
+            "REQ-1",
+        ):
+            self.assertEqual(
+                work_items[item_id].state,
+                WorkItemState.RESOLVED,
+            )
+
+    # --------------------------------------------------------------
     # State transitions
     # --------------------------------------------------------------
 
@@ -375,7 +998,6 @@ class TestWorkItemManager(unittest.TestCase):
 
         work_items = {"ITEM-1": item}
 
-        # Step 1: Product Manager records authorization.
         authorized_items, errors = self.manager.authorize_work(
             work_items,
             "ITEM-1",
@@ -387,7 +1009,6 @@ class TestWorkItemManager(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertIsNotNone(authorized_items)
 
-        # Step 2: Start work using the persisted authorization.
         result, errors = self.manager.transition_state(
             authorized_items,
             "ITEM-1",
@@ -401,7 +1022,6 @@ class TestWorkItemManager(unittest.TestCase):
             WorkItemState.IN_WORK,
         )
 
-        # Original item must remain unchanged.
         self.assertEqual(item.state, WorkItemState.PROPOSED)
 
     def test_developer_cannot_start_proposed_work(self):
@@ -556,6 +1176,74 @@ class TestWorkItemManager(unittest.TestCase):
         )
 
         self.assertTrue(errors)
+
+    def test_development_task_completes_full_lifecycle(self):
+        item = self.create_item(
+            "DEV-1",
+            WorkItemType.DEVELOPMENT_TASK,
+        )
+
+        work_items = {"DEV-1": item}
+
+        # 1. Product Manager authorizes the task.
+        work_items, errors = self.manager.authorize_work(
+            work_items,
+            "DEV-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved development work.",
+        )
+
+        self.assertEqual(errors, [])
+
+        # 2. Product Manager starts the authorized task.
+        work_items, errors = self.manager.transition_state(
+            work_items,
+            "DEV-1",
+            WorkItemState.IN_WORK,
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            work_items["DEV-1"].state,
+            WorkItemState.IN_WORK,
+        )
+
+        # 3. Developer completes implementation and submits for testing.
+        work_items, errors = self.manager.submit_for_test(
+            work_items,
+            "DEV-1",
+            AgentRole.DEVELOPER,
+            implementation_complete=True,
+            changes_in_main=True,
+            main_build_available=True,
+            review_gates_satisfied=True,
+            security_gate_passed=True,
+            ci_gate_passed=True,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            work_items["DEV-1"].state,
+            WorkItemState.IN_TEST,
+        )
+
+        # 4. QA verifies and resolves the task.
+        work_items, errors = self.manager.resolve_work_item(
+            work_items,
+            "DEV-1",
+            AgentRole.QA,
+            verification_passed=True,
+            acceptance_criteria_met=True,
+            reason="QA verification passed.",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            work_items["DEV-1"].state,
+            WorkItemState.RESOLVED,
+        )
 
     def test_submit_for_test_rejects_failed_readiness(self):
         item = self.create_item(
