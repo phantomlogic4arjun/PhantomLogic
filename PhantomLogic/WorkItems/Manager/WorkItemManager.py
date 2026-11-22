@@ -421,77 +421,7 @@ class WorkItemManager:
 
         return candidate, []
 
-    @classmethod
-    def register_work_items_with_events(
-        cls,
-        work_items: Mapping[str, WorkItem],
-        new_work_items: Iterable[WorkItem],
-        actor_role: AgentRole,
-        *,
-        actor_id: str,
-    ) -> tuple[
-        dict[str, WorkItem] | None,
-        list[str],
-        tuple[dict, ...],
-    ]:
-        """
-        Register multiple work items and return their audit events.
-        The manager does not write to the audit log.
-        The Orchestrator is responsible for submitting events
-        to AuditWriter.
-        """
-        if not isinstance(actor_id, str) or not actor_id.strip():
-            return None, ["Actor identity is required."], ()
 
-        try:
-            additions = tuple(new_work_items)
-        except TypeError:
-            return (
-                None,
-                ["New work items must be an iterable collection."],
-                (),
-            )
-
-        actor_id = actor_id.strip()
-
-        for item in additions:
-            if (
-                isinstance(item, WorkItem)
-                and item.created_by != actor_id
-            ):
-                return (
-                    None,
-                    [
-                        "Work item creator must match the acting agent identity."
-                    ],
-                    (),
-                )
-
-        result, errors = cls.register_work_items(
-            work_items,
-            additions,
-            actor_role,
-        )
-
-        if errors:
-            return None, errors, ()
-
-        events = tuple(
-            {
-                "event_type": "WORK_ITEM_CREATED",
-                "work_item_id": item.id,
-                "work_item_type": item.work_item_type.value,
-                "actor_role": actor_role.value,
-                "actor_id": actor_id,
-                "title": item.title,
-                "initial_state": item.state.value,
-                "created_at": item.created_at.isoformat(),
-                "outcome": "Successful",
-            }
-            for item in additions
-        )
-
-        return result, [], events
 
     @classmethod
     def register_work_items_with_events(
@@ -2037,5 +1967,3 @@ class WorkItemManager:
         }
 
         return result, [], (event,)
-
-

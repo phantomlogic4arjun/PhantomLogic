@@ -511,6 +511,21 @@ Every specialist agent must provide the Orchestrator with:
 - Apply the existing AuditWriter schema and audit verification procedure. Do not introduce a separate Work Item audit mechanism.
 
 
+### 12.6 Work Item Execution Verification
+
+For every Work Item operation:
+
+1. The Orchestrator must invoke the appropriate specialist agent using the native `task` tool when delegation is required.
+2. The Orchestrator must receive the actual specialist response before reporting that the task was performed.
+3. The specialist must execute the operation through the approved Work Item Management interface and retain the actual result returned by that interface.
+4. A Work Item operation is considered successful only when the actual operation result confirms success, identifies the affected Work Item, and establishes that the resulting Work Item collection was successfully committed to its designated storage, where persistence is required.
+5. The Orchestrator must not infer that a Work Item was created, modified, authorized, transitioned, or resolved from a specialist's intention, proposed command, generated audit entry, or unverified narrative.
+6. When an operation returns an event, the Orchestrator must use the actual returned event as the source of information for the corresponding audit record.
+7. If execution evidence is missing, inconsistent, or unavailable, the Orchestrator must classify the operation as unverified and must not record it as successful.
+8. The Orchestrator must not invent Work Item IDs, agent identities, operation results, timestamps, or verification evidence.
+9. Audit submission must follow the sequence defined in Sections 12.3 and 12.4. A successful Work Item operation does not imply that its audit record was successfully persisted.
+10. If any stage fails, the Orchestrator must report the actual failure and preserve the distinction between Work Item execution and audit submission.
+
 The Orchestrator must distinguish reported information from independently verified information.
 
 Incomplete reports must be returned to the responsible specialist for clarification when necessary.
