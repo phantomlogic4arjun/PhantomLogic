@@ -267,6 +267,14 @@ class WorkItemManager:
                 "The Product Manager must explicitly reinstate "
                 "the item first."
             ]
+        if (
+            item.authorized_by is not None
+            or item.authorized_at is not None
+            or item.authorization_reason is not None
+        ):
+            return None, [
+                f"Work item '{work_item_id}' has already been authorized."
+            ]
 
         timestamp = datetime.now(timezone.utc)
 

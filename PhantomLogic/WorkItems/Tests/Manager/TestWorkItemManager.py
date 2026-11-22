@@ -1197,6 +1197,63 @@ class TestWorkItemManager(unittest.TestCase):
             CodeReviewState.RESOLVED,
         )
 
+    def test_authorize_work_rejects_reauthorization(self):
+        feature = self.create_item(
+            "FEATURE-1",
+            WorkItemType.FEATURE,
+        )
+        work_items = {
+            "FEATURE-1": feature,
+        }
+
+        # First authorization should succeed.
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
+            "FEATURE-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Initial approval.",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(authorized_items)
+
+        original_authorized_by = (
+            authorized_items["FEATURE-1"].authorized_by
+        )
+        original_authorized_at = (
+            authorized_items["FEATURE-1"].authorized_at
+        )
+        original_reason = (
+            authorized_items["FEATURE-1"].authorization_reason
+        )
+
+        # A second authorization should be rejected.
+        result, errors = self.manager.authorize_work(
+            authorized_items,
+            "FEATURE-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-2",
+            reason="Attempted replacement approval.",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+
+        # Original authorization evidence must remain unchanged.
+        self.assertEqual(
+            authorized_items["FEATURE-1"].authorized_by,
+            original_authorized_by,
+        )
+        self.assertEqual(
+            authorized_items["FEATURE-1"].authorized_at,
+            original_authorized_at,
+        )
+        self.assertEqual(
+            authorized_items["FEATURE-1"].authorization_reason,
+            original_reason,
+        )
+
     def test_product_manager_can_authorize_proposed_work(self):
         item = self.create_item()
 
