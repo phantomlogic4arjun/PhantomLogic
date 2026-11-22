@@ -49,6 +49,180 @@ class WorkItemManager:
         self._readiness_rules = ReadinessRules()
         self._resolution_rules = ResolutionRules()
 
+
+    @classmethod
+    def update_build_number(
+        cls,
+        work_items: Mapping[str, WorkItem],
+        work_item_id: str,
+        build_number: str | None,
+        actor_role: AgentRole,
+    ) -> tuple[dict[str, WorkItem] | None, list[str]]:
+        """
+        Update a Requirement and its associated Test Case
+        to the same product build number.
+        """
+
+        errors = cls._validate_collection_shape(work_items)
+
+        if errors:
+            return None, errors
+
+        item = work_items.get(work_item_id)
+
+        if item is None:
+            return None, [
+                f"Work item '{work_item_id}' does not exist."
+            ]
+
+        permission_errors = PermissionRules.validate_permission(
+            actor_role,
+            WorkItemOperation.UPDATE_BUILD_NUMBER,
+            item,
+        )
+
+        if permission_errors:
+            return None, permission_errors
+
+        if build_number is not None and (
+            not isinstance(build_number, str)
+            or not build_number.strip()
+        ):
+            return None, [
+                "Build number must be a non-empty string or None."
+            ]
+
+        test_case_ids = {
+            target_id
+            for target_id in cls._relationships_from(
+                item,
+                RelationshipType.PARENT_CHILD,
+            )
+            if (
+                target_id in work_items
+                and work_items[target_id].work_item_type
+                == WorkItemType.TEST_CASE
+            )
+        }
+
+        if len(test_case_ids) != 1:
+            return None, [
+                "A Requirement must have exactly one associated Test Case "
+                "to update its build number."
+            ]
+
+        test_case_id = next(iter(test_case_ids))
+        test_case = work_items[test_case_id]
+        parent_ids = cls._find_parent_ids(
+            work_items,
+            test_case_id,
+            WorkItemType.REQUIREMENT,
+        )
+
+        if parent_ids != {work_item_id}:
+            return None, [
+                "The associated Test Case must belong to exactly one Requirement."
+            ]
+        timestamp = datetime.now(timezone.utc)
+
+        candidate = dict(work_items)
+
+        candidate[work_item_id] = replace(
+            item,
+            build_number=build_number,
+            updated_at=timestamp,
+        )
+
+        candidate[test_case_id] = replace(
+            test_case,
+            build_number=build_number,
+            updated_at=timestamp,
+        )
+
+        errors = cls.validate_collection(candidate)
+
+        if errors:
+            return None, errors
+
+        return candidate, []
+
+    def update_build_number_with_events(
+        self,
+        work_items: Mapping[str, WorkItem],
+        work_item_id: str,
+        build_number: str | None,
+        actor_role: AgentRole,
+        *,
+        actor_id: str,
+    ) -> tuple[
+        dict[str, WorkItem] | None,
+        list[str],
+        tuple[dict, ...],
+    ]:
+        """Update a Requirement build and return its audit event."""
+
+        if not isinstance(actor_id, str) or not actor_id.strip():
+            return None, ["Actor identity is required."], ()
+        errors = self._validate_collection_shape(work_items)
+
+        if errors:
+            return None, errors, ()
+        item = work_items.get(work_item_id)
+
+        if item is None:
+            return (
+                None,
+                [f"Work item '{work_item_id}' does not exist."],
+                (),
+            )
+
+        test_case_ids = {
+            target_id
+            for target_id in self._relationships_from(
+                item,
+                RelationshipType.PARENT_CHILD,
+            )
+            if (
+                target_id in work_items
+                and work_items[target_id].work_item_type
+                == WorkItemType.TEST_CASE
+            )
+        }
+
+        if len(test_case_ids) != 1:
+            return None, [
+                "A Requirement must have exactly one associated Test Case "
+                "to update its build number."
+            ], ()
+
+        test_case_id = next(iter(test_case_ids))
+
+        result, errors = self.update_build_number(
+            work_items,
+            work_item_id,
+            build_number,
+            actor_role,
+        )
+
+        if errors:
+            return None, errors, ()
+
+        event = {
+            "event_type": "WORK_ITEM_BUILD_NUMBER_UPDATED",
+            "work_item_id": work_item_id,
+            "related_work_item_id": test_case_id,
+            "previous_build_number": item.build_number,
+            "new_build_number": build_number,
+            "actor_role": actor_role.value,
+            "actor_id": actor_id.strip(),
+            "outcome": "Successful",
+            "occurred_at": result[work_item_id].updated_at.isoformat(),
+        }
+
+        return result, [], (event,)
+
+
+
     # ------------------------------------------------------------------
     # Registration and retrieval
     # ------------------------------------------------------------------

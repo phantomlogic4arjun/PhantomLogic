@@ -25,6 +25,7 @@ class WorkItemOperation(StrEnum):
     UPDATE_SCOPE = "Update Scope"
     UPDATE_IMPLEMENTATION = "Update Implementation"
     MANAGE_RELATIONSHIPS = "Manage Relationships"
+    UPDATE_BUILD_NUMBER = "Update Build Number"
 
     AUTHORIZE_WORK = "Authorize Work"
     START_AUTHORIZED_WORK = "Start Authorized Work"
@@ -185,6 +186,17 @@ class PermissionRules:
                 return [
                     f"Product Manager cannot update the scope of "
                     f"'{work_item.work_item_type.value}' through this operation."
+                ]
+
+            return []
+
+        if operation == WorkItemOperation.UPDATE_BUILD_NUMBER:
+            if agent_role != AgentRole.PRODUCT_MANAGER:
+                return cls._denied(agent_role, operation)
+
+            if work_item.work_item_type != WorkItemType.REQUIREMENT:
+                return [
+                    "Build numbers can only be updated through a Requirement."
                 ]
 
             return []

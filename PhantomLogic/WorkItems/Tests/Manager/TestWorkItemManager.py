@@ -45,6 +45,243 @@ class TestWorkItemManager(unittest.TestCase):
             acceptance_criteria=("Acceptance criterion",),
             build_number=build_number,
         )
+    def create_requirement_with_test_case(
+        self,
+        requirement_build="1.00",
+        test_case_build="1.00",
+        test_case_ids=("TEST-1",),
+    ):
+        relationships = tuple(
+            WorkItemRelationship(
+                source_id="REQ-1",
+                target_id=test_case_id,
+                relationship_type=RelationshipType.PARENT_CHILD,
+            )
+            for test_case_id in test_case_ids
+        )
+
+        requirement = self.create_item(
+            item_id="REQ-1",
+            item_type=WorkItemType.REQUIREMENT,
+            build_number=requirement_build,
+            relationships=relationships,
+        )
+
+        test_cases = {
+            test_case_id: self.create_item(
+                item_id=test_case_id,
+                item_type=WorkItemType.TEST_CASE,
+                build_number=test_case_build,
+            )
+            for test_case_id in test_case_ids
+        }
+
+        work_items = {
+            "REQ-1": requirement,
+            **test_cases,
+        }
+
+        return work_items
+
+
+    def test_update_build_number_updates_requirement_and_test_case(self):
+        work_items = self.create_requirement_with_test_case()
+
+        result, errors = self.manager.update_build_number(
+            work_items,
+            "REQ-1",
+            "1.01",
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(result["REQ-1"].build_number, "1.01")
+        self.assertEqual(result["TEST-1"].build_number, "1.01")
+
+        # Both Work Items receive the same update timestamp.
+        self.assertIsNotNone(result["REQ-1"].updated_at)
+        self.assertEqual(
+            result["REQ-1"].updated_at,
+            result["TEST-1"].updated_at,
+        )
+
+        # Original collection remains unchanged.
+        self.assertEqual(work_items["REQ-1"].build_number, "1.00")
+        self.assertEqual(work_items["TEST-1"].build_number, "1.00")
+
+    def test_update_build_number_rejects_unauthorized_role(self):
+        work_items = self.create_requirement_with_test_case()
+
+        result, errors = self.manager.update_build_number(
+            work_items,
+            "REQ-1",
+            "1.01",
+            AgentRole.DEVELOPER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+
+    def test_update_build_number_rejects_direct_test_case_update(self):
+        work_items = self.create_requirement_with_test_case()
+
+        result, errors = self.manager.update_build_number(
+            work_items,
+            "TEST-1",
+            "1.01",
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+
+    def test_update_build_number_requires_exactly_one_test_case(self):
+        work_items = self.create_requirement_with_test_case(
+            test_case_ids=(),
+        )
+
+        result, errors = self.manager.update_build_number(
+            work_items,
+            "REQ-1",
+            "1.01",
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+
+    def test_update_build_number_rejects_multiple_test_cases(self):
+        work_items = self.create_requirement_with_test_case(
+            test_case_ids=("TEST-1", "TEST-2"),
+        )
+
+        result, errors = self.manager.update_build_number(
+            work_items,
+            "REQ-1",
+            "1.01",
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+    def test_update_build_number_rejects_test_case_shared_by_two_requirements(self):
+        shared_test_case = self.create_item(
+            item_id="TEST-1",
+            item_type=WorkItemType.TEST_CASE,
+            build_number="1.00",
+        )
+
+        requirement_1 = self.create_item(
+            item_id="REQ-1",
+            item_type=WorkItemType.REQUIREMENT,
+            build_number="1.00",
+            relationships=(
+                WorkItemRelationship(
+                    source_id="REQ-1",
+                    target_id="TEST-1",
+                    relationship_type=RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        requirement_2 = self.create_item(
+            item_id="REQ-2",
+            item_type=WorkItemType.REQUIREMENT,
+            build_number="1.00",
+            relationships=(
+                WorkItemRelationship(
+                    source_id="REQ-2",
+                    target_id="TEST-1",
+                    relationship_type=RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        work_items = {
+            "REQ-1": requirement_1,
+            "REQ-2": requirement_2,
+            "TEST-1": shared_test_case,
+        }
+
+        updated_items, errors = WorkItemManager.update_build_number(
+            work_items,
+            "REQ-1",
+            "1.01",
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertIsNone(updated_items)
+        self.assertTrue(errors)
+
+        self.assertEqual(work_items["REQ-1"].build_number, "1.00")
+        self.assertEqual(work_items["REQ-2"].build_number, "1.00")
+        self.assertEqual(work_items["TEST-1"].build_number, "1.00")
+
+    def test_update_build_number_with_events_succeeds(self):
+        work_items = self.create_requirement_with_test_case()
+
+        result, errors, events = (
+            self.manager.update_build_number_with_events(
+                work_items,
+                "REQ-1",
+                "1.01",
+                AgentRole.PRODUCT_MANAGER,
+                actor_id="PM-1",
+            )
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(events), 1)
+
+        event = events[0]
+
+        self.assertEqual(
+            event["event_type"],
+            "WORK_ITEM_BUILD_NUMBER_UPDATED",
+        )
+        self.assertEqual(event["work_item_id"], "REQ-1")
+        self.assertEqual(event["related_work_item_id"], "TEST-1")
+        self.assertEqual(event["previous_build_number"], "1.00")
+        self.assertEqual(event["new_build_number"], "1.01")
+
+        self.assertEqual(
+            event["actor_role"],
+            AgentRole.PRODUCT_MANAGER.value,
+        )
+        self.assertEqual(event["actor_id"], "PM-1")
+        self.assertEqual(event["outcome"], "Successful")
+
+        # Audit event timestamp matches the actual Work Item update.
+        self.assertEqual(
+            event["occurred_at"],
+            result["REQ-1"].updated_at.isoformat(),
+        )
+
+        self.assertEqual(result["REQ-1"].build_number, "1.01")
+        self.assertEqual(result["TEST-1"].build_number, "1.01")
+
+        # Both Work Items share the same timestamp.
+        self.assertEqual(
+            result["REQ-1"].updated_at,
+            result["TEST-1"].updated_at,
+        )
+
+    def test_update_build_number_with_events_requires_actor_identity(self):
+        work_items = self.create_requirement_with_test_case()
+
+        result, errors, events = (
+            self.manager.update_build_number_with_events(
+                work_items,
+                "REQ-1",
+                "1.01",
+                AgentRole.PRODUCT_MANAGER,
+                actor_id=" ",
+            )
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(events, ())
 
     # --------------------------------------------------------------
     # Registration
