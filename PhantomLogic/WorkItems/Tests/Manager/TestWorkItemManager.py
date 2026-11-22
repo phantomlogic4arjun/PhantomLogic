@@ -373,16 +373,35 @@ class TestWorkItemManager(unittest.TestCase):
     def test_product_manager_can_authorize_proposed_work(self):
         item = self.create_item()
 
-        result, errors = self.manager.transition_state(
-            {"ITEM-1": item},
+        work_items = {"ITEM-1": item}
+
+        # Step 1: Product Manager records authorization.
+        authorized_items, errors = self.manager.authorize_work(
+            work_items,
             "ITEM-1",
-            WorkItemState.IN_WORK,
             AgentRole.PRODUCT_MANAGER,
-            work_authorized=True,
+            actor_id="PM-1",
+            reason="Approved for development.",
         )
 
         self.assertEqual(errors, [])
-        self.assertEqual(result["ITEM-1"].state, WorkItemState.IN_WORK)
+        self.assertIsNotNone(authorized_items)
+
+        # Step 2: Start work using the persisted authorization.
+        result, errors = self.manager.transition_state(
+            authorized_items,
+            "ITEM-1",
+            WorkItemState.IN_WORK,
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            result["ITEM-1"].state,
+            WorkItemState.IN_WORK,
+        )
+
+        # Original item must remain unchanged.
         self.assertEqual(item.state, WorkItemState.PROPOSED)
 
     def test_developer_cannot_start_proposed_work(self):

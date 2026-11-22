@@ -843,42 +843,6 @@ class WorkItemManager:
     # State transitions
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _permission_for_transition(
-        work_item: WorkItem,
-        target_state: WorkItemState | CodeReviewState,
-        actor_role: AgentRole,
-    ) -> WorkItemOperation | None:
-        if work_item.work_item_type == WorkItemType.CODE_REVIEW_TASK:
-            if target_state == CodeReviewState.RESOLVED:
-                return WorkItemOperation.RESOLVE_CODE_REVIEW
-
-            return WorkItemOperation.PERFORM_CODE_REVIEW
-
-        if target_state == WorkItemState.BLOCKED:
-            return WorkItemOperation.BLOCK
-
-        if target_state == WorkItemState.REMOVED:
-            return WorkItemOperation.REMOVE
-
-        if work_item.state == WorkItemState.BLOCKED:
-            return WorkItemOperation.UNBLOCK
-
-        if target_state == WorkItemState.IN_TEST:
-            if actor_role == AgentRole.WORK_ITEM_MANAGER:
-                return WorkItemOperation.ENFORCE_WORKFLOW
-
-            return WorkItemOperation.SUBMIT_FOR_TEST
-
-        if target_state == WorkItemState.IN_WORK:
-            if work_item.state in {
-                WorkItemState.PROPOSED,
-                WorkItemState.RESOLVED,
-            }:
-                return WorkItemOperation.START_AUTHORIZED_WORK
-
-        return None
-
     def transition_state(
         self,
         work_items: Mapping[str, WorkItem],
@@ -896,6 +860,124 @@ class WorkItemManager:
         related_developer_id: str | None = None,
         previous_state: WorkItemState | None = None,
     ) -> tuple[dict[str, WorkItem] | None, list[str]]:
+        """
+        Guarded public state-transition interface.
+
+        Standard work must use submit_for_test() or resolve_work_item()
+        for those lifecycle transitions.
+
+        Starting or reopening ordinary work requires persisted
+        Product Manager authorization.
+
+        Code Review Tasks retain their separate Reviewer-owned lifecycle.
+        """
+
+        errors = self._validate_collection_shape(work_items)
+
+        if errors:
+            return None, errors
+
+        if not isinstance(actor_role, AgentRole):
+            return None, ["Agent role is invalid."]
+
+        item = work_items.get(work_item_id)
+
+        if item is None:
+            return None, [
+                f"Work item '{work_item_id}' does not exist."
+            ]
+
+        # Standard work must enter In Test through submit_for_test().
+        if (
+            target_state == WorkItemState.IN_TEST
+            and item.work_item_type != WorkItemType.CODE_REVIEW_TASK
+        ):
+            return None, [
+                "Use submit_for_test() to move work items into In Test."
+            ]
+
+        # Standard work must enter Resolved through resolve_work_item().
+        if (
+            target_state == WorkItemState.RESOLVED
+            and item.work_item_type != WorkItemType.CODE_REVIEW_TASK
+        ):
+            return None, [
+                "Use resolve_work_item() to resolve standard work items."
+            ]
+
+        # Starting or reopening ordinary work requires persisted
+        # Product Manager authorization.
+        if (
+            target_state == WorkItemState.IN_WORK
+            and item.state in {
+                WorkItemState.PROPOSED,
+                WorkItemState.RESOLVED,
+            }
+            and item.work_item_type not in {
+                WorkItemType.BUG,
+                WorkItemType.CHANGE_REQUEST,
+            }
+        ):
+            authorization_valid = (
+                isinstance(item.authorized_by, str)
+                and bool(item.authorized_by.strip())
+                and isinstance(item.authorized_at, datetime)
+                and item.authorized_at.tzinfo is not None
+                and item.authorized_at.utcoffset() == timezone.utc.utcoffset(
+                    item.authorized_at
+                )
+                and isinstance(item.authorization_reason, str)
+                and bool(item.authorization_reason.strip())
+            )
+
+            if not authorization_valid:
+                return None, [
+                    "Work must have valid Product Manager authorization "
+                    "before it can be started."
+                ]
+
+            # Do not trust the caller's work_authorized argument.
+            work_authorized = True
+
+        return self._transition_state(
+            work_items,
+            work_item_id,
+            target_state,
+            actor_role,
+            reason=reason,
+            work_authorized=work_authorized,
+            implementation_ready=implementation_ready,
+            verification_passed=verification_passed,
+            completion_criteria_met=completion_criteria_met,
+            review_approved=review_approved,
+            actor_id=actor_id,
+            related_developer_id=related_developer_id,
+            previous_state=previous_state,
+        )
+
+    def _transition_state(
+        self,
+        work_items: Mapping[str, WorkItem],
+        work_item_id: str,
+        target_state: WorkItemState | CodeReviewState,
+        actor_role: AgentRole,
+        *,
+        reason: str | None = None,
+        work_authorized: bool = False,
+        implementation_ready: bool = False,
+        verification_passed: bool = False,
+        completion_criteria_met: bool = False,
+        review_approved: bool = False,
+        actor_id: str | None = None,
+        related_developer_id: str | None = None,
+        previous_state: WorkItemState | None = None,
+    ) -> tuple[dict[str, WorkItem] | None, list[str]]:
+        """
+        Internal transition implementation.
+
+        Callers should use the appropriate higher-level Manager operation.
+        """
+
         errors = self._validate_collection_shape(work_items)
 
         if errors:
@@ -1002,6 +1084,42 @@ class WorkItemManager:
 
         return candidate, []
 
+    @staticmethod
+    def _permission_for_transition(
+        work_item: WorkItem,
+        target_state: WorkItemState | CodeReviewState,
+        actor_role: AgentRole,
+    ) -> WorkItemOperation | None:
+        if work_item.work_item_type == WorkItemType.CODE_REVIEW_TASK:
+            if target_state == CodeReviewState.RESOLVED:
+                return WorkItemOperation.RESOLVE_CODE_REVIEW
+
+            return WorkItemOperation.PERFORM_CODE_REVIEW
+
+        if target_state == WorkItemState.BLOCKED:
+            return WorkItemOperation.BLOCK
+
+        if target_state == WorkItemState.REMOVED:
+            return WorkItemOperation.REMOVE
+
+        if work_item.state == WorkItemState.BLOCKED:
+            return WorkItemOperation.UNBLOCK
+
+        if target_state == WorkItemState.IN_TEST:
+            if actor_role == AgentRole.WORK_ITEM_MANAGER:
+                return WorkItemOperation.ENFORCE_WORKFLOW
+
+            return WorkItemOperation.SUBMIT_FOR_TEST
+
+        if target_state == WorkItemState.IN_WORK:
+            if work_item.state in {
+                WorkItemState.PROPOSED,
+                WorkItemState.RESOLVED,
+            }:
+                return WorkItemOperation.START_AUTHORIZED_WORK
+
+        return None
+
     # ------------------------------------------------------------------
     # Readiness and test submission
     # ------------------------------------------------------------------
@@ -1088,7 +1206,7 @@ class WorkItemManager:
                 "work for testing."
             ]
 
-        return self.transition_state(
+        return self._transition_state(
             work_items,
             work_item_id,
             WorkItemState.IN_TEST,
@@ -1166,7 +1284,7 @@ class WorkItemManager:
         if errors:
             return None, errors
 
-        return self.transition_state(
+        return self._transition_state(
             work_items,
             work_item_id,
             WorkItemState.RESOLVED,
