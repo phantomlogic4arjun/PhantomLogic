@@ -33,6 +33,7 @@ class TestWorkItemManager(unittest.TestCase):
         item_type=WorkItemType.FEATURE,
         state=WorkItemState.PROPOSED,
         relationships=(),
+        build_number=None,
     ):
         return WorkItem(
             id=item_id,
@@ -42,6 +43,7 @@ class TestWorkItemManager(unittest.TestCase):
             state=state,
             relationships=relationships,
             acceptance_criteria=("Acceptance criterion",),
+            build_number=build_number,
         )
 
     # --------------------------------------------------------------
@@ -2042,6 +2044,47 @@ class TestWorkItemManager(unittest.TestCase):
             events[0]["new_state"],
             WorkItemState.BLOCKED.value,
         )
+    def test_state_transition_preserves_build_number(self):
+        item = self.create_item(
+            item_id="REQ-1",
+            item_type=WorkItemType.REQUIREMENT,
+            state=WorkItemState.PROPOSED,
+            build_number="1.01",
+        )
+
+        authorized_items, errors = self.manager.authorize_work(
+            {"REQ-1": item},
+            "REQ-1",
+            AgentRole.PRODUCT_MANAGER,
+            actor_id="PM-1",
+            reason="Approved for development.",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(authorized_items)
+        # Verify authorization preserves the build number.
+        self.assertEqual(
+            authorized_items["REQ-1"].build_number,
+            "1.01",
+        )
+        result, errors = self.manager.transition_state(
+            authorized_items,
+            "REQ-1",
+            WorkItemState.IN_WORK,
+            AgentRole.PRODUCT_MANAGER,
+        )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(result)
+
+        updated_item = result["REQ-1"]
+
+        self.assertEqual(updated_item.build_number, "1.01")
+        self.assertEqual(updated_item.state, WorkItemState.IN_WORK)
+
+        # The original Work Item remains unchanged.
+        self.assertEqual(item.build_number, "1.01")
+        self.assertEqual(item.state, WorkItemState.PROPOSED)
 
     def test_transition_state_with_events_requires_actor_id(self):
         item = self.create_item(

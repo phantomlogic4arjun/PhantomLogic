@@ -18,7 +18,7 @@ class WorkItem:
     title: str
     work_item_type: WorkItemType
     created_by: str
-
+    build_number: str | None = None
     description: str = ""
     state: WorkItemState | CodeReviewState = WorkItemState.PROPOSED
     priority: str | None = None

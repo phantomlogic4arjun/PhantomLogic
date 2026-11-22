@@ -30,6 +30,38 @@ class TestWorkItem(unittest.TestCase):
         self.assertEqual(item.work_item_type, WorkItemType.FEATURE)
         self.assertEqual(item.created_by, "ProductManager")
 
+    def test_work_item_can_store_build_number(self):
+        item = WorkItem(
+            id="REQ-001",
+            title="User login",
+            work_item_type=WorkItemType.REQUIREMENT,
+            created_by="ProductManager",
+            build_number="1.00",
+        )
+
+        self.assertEqual(item.build_number, "1.00")
+
+    def test_work_item_can_store_later_build_number(self):
+        item = WorkItem(
+            id="REQ-002",
+            title="Password reset",
+            work_item_type=WorkItemType.REQUIREMENT,
+            created_by="ProductManager",
+            build_number="1.01",
+        )
+
+        self.assertEqual(item.build_number, "1.01")
+
+    def test_build_number_defaults_to_none(self):
+        item = WorkItem(
+            id="REQ-003",
+            title="User registration",
+            work_item_type=WorkItemType.REQUIREMENT,
+            created_by="ProductManager",
+        )
+
+        self.assertIsNone(item.build_number)
+
     def test_default_values_are_set(self):
         item = WorkItem(
             id="REQ-001",
@@ -49,6 +81,7 @@ class TestWorkItem(unittest.TestCase):
         self.assertIsNone(item.authorized_by)
         self.assertIsNone(item.authorized_at)
         self.assertIsNone(item.authorization_reason)
+        self.assertIsNone(item.build_number)
 
     def test_timestamps_are_timezone_aware(self):
         item = WorkItem(
