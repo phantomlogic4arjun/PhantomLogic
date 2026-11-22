@@ -590,10 +590,34 @@ class TestWorkItemManager(unittest.TestCase):
         requirement_1 = self.create_item(
             "REQ-1",
             WorkItemType.REQUIREMENT,
+            relationships=(
+                WorkItemRelationship(
+                    "REQ-1",
+                    "TEST-1",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
         )
         requirement_2 = self.create_item(
             "REQ-2",
             WorkItemType.REQUIREMENT,
+            relationships=(
+                WorkItemRelationship(
+                    "REQ-2",
+                    "TEST-2",
+                    RelationshipType.PARENT_CHILD,
+                ),
+            ),
+        )
+
+        test_case_1 = self.create_item(
+            "TEST-1",
+            WorkItemType.TEST_CASE,
+        )
+
+        test_case_2 = self.create_item(
+            "TEST-2",
+            WorkItemType.TEST_CASE,
         )
 
         relationship_to_remove = WorkItemRelationship(
@@ -623,6 +647,8 @@ class TestWorkItemManager(unittest.TestCase):
             "DEV-1": development_task,
             "REQ-1": requirement_1,
             "REQ-2": requirement_2,
+            "TEST-1": test_case_1,
+            "TEST-2": test_case_2,
             "CR-1": change_request,
         }
 

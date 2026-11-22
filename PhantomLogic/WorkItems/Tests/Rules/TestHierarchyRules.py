@@ -17,6 +17,7 @@ class TestHierarchyRules(unittest.TestCase):
         work_item_id,
         work_item_type,
         relationships=(),
+        build_number=None,
     ):
         return WorkItem(
             id=work_item_id,
@@ -24,6 +25,7 @@ class TestHierarchyRules(unittest.TestCase):
             work_item_type=work_item_type,
             created_by="ProductManager",
             relationships=relationships,
+            build_number=build_number,
         )
 
     def create_parent_child_relationship(
@@ -660,7 +662,7 @@ class TestHierarchyRules(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("Code Review Task", errors[0])
 
-    def test_multiple_requirements_and_test_cases_are_allowed(self):
+    def test_multiple_requirements_each_have_one_test_case(self):
         use_case = self.create_work_item(
             "UC-001",
             WorkItemType.USE_CASE,
@@ -670,28 +672,30 @@ class TestHierarchyRules(unittest.TestCase):
                 self.create_parent_child_relationship("UC-001", "DEV-001"),
             ),
         )
+
         requirement_one = self.create_work_item(
             "REQ-001",
             WorkItemType.REQUIREMENT,
             (
                 self.create_parent_child_relationship("REQ-001", "TEST-001"),
-                self.create_parent_child_relationship("REQ-001", "TEST-002"),
             ),
         )
+
         requirement_two = self.create_work_item(
             "REQ-002",
             WorkItemType.REQUIREMENT,
             (
-                self.create_parent_child_relationship("REQ-002", "TEST-003"),
+                self.create_parent_child_relationship("REQ-002", "TEST-002"),
             ),
         )
+
         development_task = self.create_work_item(
             "DEV-001",
             WorkItemType.DEVELOPMENT_TASK,
         )
+
         test_one = self.create_work_item("TEST-001", WorkItemType.TEST_CASE)
         test_two = self.create_work_item("TEST-002", WorkItemType.TEST_CASE)
-        test_three = self.create_work_item("TEST-003", WorkItemType.TEST_CASE)
 
         work_items = {
             item.id: item
@@ -702,13 +706,10 @@ class TestHierarchyRules(unittest.TestCase):
                 development_task,
                 test_one,
                 test_two,
-                test_three,
             )
         }
 
-        errors = HierarchyRules.validate_parent_child_relationships(
-            work_items
-        )
+        errors = HierarchyRules.validate_parent_child_relationships(work_items)
 
         self.assertEqual(errors, [])
 
@@ -745,6 +746,75 @@ class TestHierarchyRules(unittest.TestCase):
             any("Code Review Task" in error for error in errors)
         )
 
+    def test_requirement_without_test_case_is_rejected(self):
+        work_items = self.create_work_items()
+
+        requirement = work_items["REQ-001"]
+        requirement.relationships = ()
+
+        errors = HierarchyRules.validate_required_children(work_items)
+
+        self.assertTrue(
+            any(
+                "Requirement 'REQ-001' must have exactly one Test Case; found 0."
+                in error
+                for error in errors
+            )
+        )
+
+
+    def test_requirement_with_multiple_test_cases_is_rejected(self):
+        work_items = self.create_work_items()
+
+        requirement = work_items["REQ-001"]
+        requirement.relationships = (
+            self.create_parent_child_relationship("REQ-001", "TEST-001"),
+            self.create_parent_child_relationship("REQ-001", "TEST-002"),
+        )
+
+        work_items["TEST-002"] = self.create_work_item(
+            "TEST-002",
+            WorkItemType.TEST_CASE,
+        )
+
+        errors = HierarchyRules.validate_required_children(work_items)
+
+        self.assertTrue(
+            any(
+                "Requirement 'REQ-001' must have exactly one Test Case; found 2."
+                in error
+                for error in errors
+            )
+        )
+
+
+    def test_requirement_and_test_case_with_matching_build_numbers_are_accepted(self):
+        work_items = self.create_work_items()
+
+        work_items["REQ-001"].build_number = "1.01"
+        work_items["TEST-001"].build_number = "1.01"
+
+        errors = HierarchyRules.validate_hierarchy(work_items)
+
+        self.assertEqual(errors, [])
+
+
+    def test_requirement_and_test_case_with_different_build_numbers_are_rejected(self):
+        work_items = self.create_work_items()
+
+        work_items["REQ-001"].build_number = "1.01"
+        work_items["TEST-001"].build_number = "1.02"
+
+        errors = HierarchyRules.validate_hierarchy(work_items)
+
+        self.assertTrue(
+            any(
+                "Requirement 'REQ-001' and Test Case 'TEST-001' "
+                "must have the same build number."
+                in error
+                for error in errors
+            )
+        )
 
 if __name__ == "__main__":
     unittest.main()

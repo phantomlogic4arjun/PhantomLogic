@@ -244,6 +244,7 @@ class HierarchyRules:
         errors = []
         development_task_counts = {}
         code_review_task_counts = {}
+        test_case_counts = {}
 
         for work_item in work_items.values():
 
@@ -289,6 +290,11 @@ class HierarchyRules:
                         code_review_task_counts.get(work_item.id, 0) + 1
                     )
 
+                if target.work_item_type == WorkItemType.TEST_CASE:
+                    test_case_counts[work_item.id] = (
+                        test_case_counts.get(work_item.id, 0) + 1
+                    )
+
         for work_item_id, work_item in work_items.items():
 
             if not isinstance(work_item, WorkItem):
@@ -312,7 +318,60 @@ class HierarchyRules:
                         f"Code Review Task; found {count}."
                     )
 
+            if work_item.work_item_type == WorkItemType.REQUIREMENT:
+                count = test_case_counts.get(work_item_id, 0)
+
+                if count != 1:
+                    errors.append(
+                        f"Requirement '{work_item_id}' must have exactly one "
+                        f"Test Case; found {count}."
+                    )
+
         return errors
+
+    @classmethod
+    def validate_requirement_test_case_build_numbers(
+        cls,
+        work_items: dict[str, WorkItem],
+    ) -> list[str]:
+
+        errors = []
+
+        for work_item in work_items.values():
+
+            if not isinstance(work_item, WorkItem):
+                continue
+
+            if work_item.work_item_type != WorkItemType.REQUIREMENT:
+                continue
+
+            for relationship in work_item.relationships:
+
+                if not isinstance(relationship, WorkItemRelationship):
+                    continue
+
+                if relationship.relationship_type != RelationshipType.PARENT_CHILD:
+                    continue
+
+                if relationship.source_id != work_item.id:
+                    continue
+
+                test_case = work_items.get(relationship.target_id)
+
+                if not isinstance(test_case, WorkItem):
+                    continue
+
+                if test_case.work_item_type != WorkItemType.TEST_CASE:
+                    continue
+
+                if work_item.build_number != test_case.build_number:
+                    errors.append(
+                        f"Requirement '{work_item.id}' and Test Case "
+                        f"'{test_case.id}' must have the same build number."
+                    )
+
+        return errors
+
 
     @classmethod
     def validate_hierarchy(
@@ -332,6 +391,10 @@ class HierarchyRules:
 
         errors.extend(
             cls.validate_required_children(work_items)
+        )
+
+        errors.extend(
+            cls.validate_requirement_test_case_build_numbers(work_items)
         )
 
         return errors
