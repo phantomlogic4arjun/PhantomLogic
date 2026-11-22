@@ -916,6 +916,7 @@ class WorkItemManager:
             and item.work_item_type not in {
                 WorkItemType.BUG,
                 WorkItemType.CHANGE_REQUEST,
+                WorkItemType.CODE_REVIEW_TASK,
             }
         ):
             authorization_valid = (

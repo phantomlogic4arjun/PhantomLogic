@@ -993,6 +993,94 @@ class TestWorkItemManager(unittest.TestCase):
     # State transitions
     # --------------------------------------------------------------
 
+    def test_complete_code_review_lifecycle(self):
+        review_task = self.create_item(
+            "REVIEW-1",
+            WorkItemType.CODE_REVIEW_TASK,
+            state=CodeReviewState.PROPOSED,
+        )
+
+        work_items = {
+            "REVIEW-1": review_task,
+        }        
+
+        # 1. Reviewer starts the Code Review Task.
+        work_items, errors = self.manager.transition_state(
+            work_items,
+            "REVIEW-1",
+            CodeReviewState.IN_WORK,
+            AgentRole.REVIEWER,
+        )
+
+        self.assertEqual(errors, [])
+
+        # 2. Reviewer begins the review.
+        work_items, errors = self.manager.transition_state(
+            work_items,
+            "REVIEW-1",
+            CodeReviewState.REVIEW,
+            AgentRole.REVIEWER,
+        )
+
+        self.assertEqual(errors, [])
+
+        # 3. Reviewer requests changes.
+        work_items, errors = self.manager.transition_state(
+            work_items,
+            "REVIEW-1",
+            CodeReviewState.IN_WORK,
+            AgentRole.REVIEWER,
+            reason="Changes required before approval.",
+        )
+
+        self.assertEqual(errors, [])
+
+        # 4. Developer addresses the requested changes.
+        # Reviewer sends the updated work back into review.
+        work_items, errors = self.manager.transition_state(
+            work_items,
+            "REVIEW-1",
+            CodeReviewState.REVIEW,
+            AgentRole.REVIEWER,
+        )
+
+        self.assertEqual(errors, [])
+
+        # 5. Verify that the Developer cannot approve their own work.
+        result, errors = self.manager.transition_state(
+            work_items,
+            "REVIEW-1",
+            CodeReviewState.RESOLVED,
+            AgentRole.REVIEWER,
+            review_approved=True,
+            actor_id="DEV-1",
+            related_developer_id="DEV-1",
+        )
+
+        self.assertIsNone(result)
+        self.assertTrue(errors)
+        self.assertEqual(
+            work_items["REVIEW-1"].state,
+            CodeReviewState.REVIEW,
+        )
+
+        # 6. Independent Reviewer approves and resolves the task.
+        work_items, errors = self.manager.transition_state(
+            work_items,
+            "REVIEW-1",
+            CodeReviewState.RESOLVED,
+            AgentRole.REVIEWER,
+            review_approved=True,
+            actor_id="REVIEWER-1",
+            related_developer_id="DEV-1",
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            work_items["REVIEW-1"].state,
+            CodeReviewState.RESOLVED,
+        )
+
     def test_product_manager_can_authorize_proposed_work(self):
         item = self.create_item()
 
