@@ -1,6 +1,8 @@
 
 import unittest
 
+from dataclasses import replace
+
 from PhantomLogic.WorkItems.Manager.WorkItemRelationshipManager import (
     WorkItemRelationshipManager,
 )
@@ -468,6 +470,64 @@ class TestWorkItemRelationshipManager(unittest.TestCase):
             requirement_relationship,
             result["BUG-1"].relationships,
         )
+
+    def test_remove_bug_optional_link_preserves_existing_work_states(self):
+        work_items = self.create_valid_hierarchy()
+
+        requirement_relationship = WorkItemRelationship(
+            "BUG-1",
+            "REQ-1",
+            RelationshipType.VIOLATED_REQUIREMENT,
+        )
+
+        failed_test_relationship = WorkItemRelationship(
+            "BUG-1",
+            "TEST-1",
+            RelationshipType.FAILED_TEST_CASE,
+        )
+
+        work_items["BUG-1"] = self.create_item(
+            "BUG-1",
+            WorkItemType.BUG,
+            relationships=(
+                requirement_relationship,
+                failed_test_relationship,
+            ),
+        )
+
+        # Simulate an already-started Bug and propagated hierarchy.
+        for item_id in ("BUG-1", "REQ-1", "UC-1", "FEAT-1"):
+            work_items[item_id] = replace(
+                work_items[item_id],
+                state=WorkItemState.IN_WORK,
+            )
+
+        result, errors = (
+            WorkItemRelationshipManager.remove_relationship(
+                work_items,
+                failed_test_relationship,
+                AgentRole.PRODUCT_MANAGER,
+            )
+        )
+
+        self.assert_success(result, errors)
+
+        self.assertNotIn(
+            failed_test_relationship,
+            result["BUG-1"].relationships,
+        )
+        self.assertIn(
+            requirement_relationship,
+            result["BUG-1"].relationships,
+        )
+
+        # Removing the optional relationship must not change work states.
+        for item_id in ("BUG-1", "REQ-1", "UC-1", "FEAT-1"):
+            self.assertEqual(
+                result[item_id].state,
+                WorkItemState.IN_WORK,
+                f"{item_id} state changed unexpectedly.",
+            )
 
     def test_remove_relationship_does_not_mutate_original(self):
         work_items = self.create_valid_hierarchy()
