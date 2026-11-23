@@ -51,89 +51,113 @@ Phantom Logic operates through a central Orchestrator supported by seven special
 
 ## 4. Repository Structure
 
-The repository is organized to separate company governance, agent responsibilities, products, infrastructure, and reusable knowledge.
+The repository contains Phantom Logic's central control plane, company documentation, agent configuration, and shared platform code.
 
 ```text
 Autonomous Lab/
-│
-├── README.md
-│
-├── Agents/
-│   ├── Orchestrator/
-│   ├── Product Manager/
-│   ├── Architect/
-│   ├── Designer/
-│   ├── Developer/
-│   ├── QA/
-│   ├── Security/
-│   └── Devops/
-│
-├── PhantomLogic/
-│   ├── PhantomLogic.md
-│   ├── Rules.md
-│   ├── Architecture.md
-│   └── Decisions.md
-│
-├── Products/
-│   └── Personal Finance Tracker/
-│
-├── Infrastructure/
-│
-├── Memory/
-│
-├── Skills/
-│
-├── Workflows/
-│
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   └── workflows/
 ├── .opencode/
-│
+│   ├── agent-prompts/
+│   ├── plugins/
+│   ├── package.json
+│   └── package-lock.json
+├── docs/
+│   ├── architecture/
+│   │   ├── decisions/
+│   │   └── system/
+│   ├── company/
+│   ├── development/
+│   ├── standards/
+│   └── work-items/
+├── src/
+│   └── phantom_logic/
+│       ├── audit/
+│       ├── database/
+│       │   ├── migrations/
+│       │   ├── models/
+│       │   └── repositories/
+│       └── work_items/
+│           ├── interfaces/
+│           ├── managers/
+│           ├── models/
+│           ├── rules/
+│           └── services/
+├── tests/
+│   ├── audit/
+│   ├── database/
+│   └── work_items/
+├── var/
+│   └── audit/
+├── AGENTS.md
+├── .gitignore
+├── alembic.ini
 ├── opencode.jsonc
-│
-└── .gitignore
+├── pyproject.toml
+├── requirements.txt
+└── README.md
 ```
 
 ### Folder Responsibilities
 
-**Agents/**
+**AGENTS.md**
 
-Contains detailed role definitions and operating instructions for all AI agents. Each agent has its own responsibilities, workflow, collaboration rules, and definition of done.
+Contains repository-wide instructions for AI agents, including
+repository boundaries, authoritative documentation, change management,
+security requirements, Work Item coordination, audit responsibilities,
+and human approval requirements.
 
-**PhantomLogic/**
+**.github/**
 
-Contains the company's central documentation and governance:
-
-- `PhantomLogic.md` — Company identity, mission, principles, technology preferences, and definition of done.
-- `Rules.md` — Organization-wide rules governing agent behavior, permissions, collaboration, and safety.
-- `Architecture.md` — Overall organizational and technical architecture.
-- `Decisions.md` — Record of significant decisions and their rationale.
-
-**Products/**
-
-Contains individual software product projects developed by Phantom Logic. Each product maintains its own requirements, architecture, design, source code, tests, and documentation as appropriate.
-
-**Infrastructure/**
-
-Contains infrastructure-related configurations, environment setup, build tools, deployment resources, and supporting technical components.
-
-**Memory/**
-
-Provides persistent organizational and project knowledge that can be reused by agents across tasks and projects.
-
-**Skills/**
-
-Contains reusable capabilities, procedures, and specialized instructions that can be used by agents when performing particular tasks.
-
-**Workflows/**
-
-Contains automated workflows that coordinate processes, agents, and supporting tools.
+Contains GitHub repository configuration, issue templates, and automated workflows. Continuous Integration installs the Python project and runs the complete test suite.
 
 **.opencode/**
 
-Contains OpenCode-specific project configuration and supporting resources.
+Contains OpenCode-specific configuration and resources:
 
-**opencode.jsonc**
+- `agent-prompts/` — Detailed operating instructions for the Orchestrator and specialist agents.
+- `plugins/` — Custom OpenCode plugins, including the Work Item integration.
+- `package.json` and `package-lock.json` — Dependencies for OpenCode plugins and supporting tooling.
 
-The project-level OpenCode configuration. Registers the primary Orchestrator and all specialist agents, including their operating modes and references to their detailed instruction files.
+**docs/**
+
+Contains the company's maintained documentation:
+
+- `company/` — Company identity, mission, and organizational rules.
+- `architecture/` — System architecture and architecture decision records.
+- `development/` — Development history and project evolution.
+- `standards/` — Coding and code review guidelines.
+- `work-items/` — Work Item management documentation, implementation references, and state transition rules.
+
+**src/phantom_logic/**
+
+Contains the shared Python implementation of the Phantom Logic control plane.
+
+- `audit/` — Central audit writer and audit functionality.
+- `database/` — Database configuration, SQLAlchemy models, repositories, and Alembic migrations.
+- `work_items/` — Work Item interfaces, managers, models, business rules, and services.
+
+**tests/**
+
+Contains the automated Python test suite, organized to reflect the application modules:
+
+- `audit/` — Audit writer and audit contract tests.
+- `database/` — Database repository tests.
+- `work_items/` — Work Item model, interface, manager, rule, service, and integration tests.
+
+**var/**
+
+Contains runtime-generated or maintained application data. The `audit/` directory holds the central audit log.
+
+### Root Configuration Files
+
+- `opencode.jsonc` — Registers the Orchestrator and specialist agents, their operating modes, permissions, and prompt paths.
+- `pyproject.toml` — Defines the Python project, dependencies, and package configuration.
+- `requirements.txt` — Provides the pinned Python dependencies for compatibility with standard pip installation workflows.
+- `alembic.ini` — Configures database migration tooling.
+- `.gitignore` — Excludes local environments, secrets, caches, and generated files.
+- `README.md` — Introduces Phantom Logic, its organizational model, architecture, and operating principles.
 
 ## 5. Technology Stack
 

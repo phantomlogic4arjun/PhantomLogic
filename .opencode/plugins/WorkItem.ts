@@ -93,7 +93,7 @@ export const WorkItemPlugin = async (
             [
               "python",
               "-m",
-              "PhantomLogic.WorkItems.Interfaces.WorkItemAgentBridge",
+              "phantom_logic.work_items.interfaces.WorkItemAgentBridge",
             ],
             {
               cwd: projectRoot,

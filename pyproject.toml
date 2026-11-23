@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phantom-logic"
+version = "0.1.0"
+description = "Central control plane and autonomous software company platform."
+requires-python = ">=3.11"
+dependencies = [
+    "SQLAlchemy==2.1.9",
+    "psycopg[binary]==3.3.9",
+    "alembic==1.20.1",
+    "python-dotenv==1.2.4",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["phantom_logic*"]
+
+[tool.setuptools.package-data]
+phantom_logic = [
+    "database/migrations/README",
+    "database/migrations/script.py.mako",
+    "database/migrations/versions/*.py",
+]
