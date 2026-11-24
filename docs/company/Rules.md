@@ -453,16 +453,31 @@ Approval requests must be specific enough for the owner to understand the exact 
 - Each audit record must identify whether approval was required and, if so, who authorized it.
 - Each audit record must describe the outcome, including success, failure, partial completion, or cancellation.
 
+
 ### 16.2 Audit Record Storage and Availability
 
-- Audit records must be stored in an owner-approved, designated company location.
-- Agents must not independently choose an external service or transmit audit records to an external destination.
-- Agents must use the approved audit-recording mechanism when one is configured.
-- If no approved audit-recording mechanism exists, agents must report the limitation to the Orchestrator and owner.
+- The authoritative company audit store is the PostgreSQL database `phantom_logic`, table `audit.audit_events`.
+
+- Audit records must be submitted through the approved Audit Writer at `src/phantom_logic/audit/AuditWriter.py`.
+
+- The Orchestrator is the sole interface for submitting central audit records.
+
+- Specialist agents must report significant actions to the Orchestrator and must never independently access or write to the central audit database.
+
+- Agents must not independently choose an external service, file, or alternative destination for central audit records.
+
+- Agents must use the approved audit-recording mechanism.
+
+- If the approved audit-recording mechanism is unavailable, agents must report the limitation to the Orchestrator and owner.
+
 - Agents must not claim that an action was logged unless the record was successfully created and verified.
+
 - Actions requiring prior authorization or a pre-action audit record must not proceed until the required approval and record have been obtained and verified, unless the owner explicitly authorizes an exception.
-- For other significant actions, agents must create and verify the audit record as soon as reasonably possible after the action is completed, fails, is cancelled, or is blocked.
-- If the approved audit-recording mechanism is unavailable, agents must report the limitation to the Orchestrator and owner and follow the applicable approval and execution restrictions.
+
+- For other significant actions, the Orchestrator must submit and verify the audit record as soon as reasonably possible after the action is completed, fails, is cancelled, or is blocked.
+
+- If audit persistence fails, the Orchestrator must report the failure and follow the applicable approval and execution restrictions.
+
 
 ### 16.3 Approval and Decision Records
 
@@ -476,7 +491,7 @@ Approval requests must be specific enough for the owner to understand the exact 
 
 - Agents must not falsify, fabricate, or misrepresent audit records.
 - Agents must not silently modify or delete audit records to conceal actions, mistakes, or unauthorized activity.
-- Corrections to existing records must preserve the original information and clearly identify the correction.
+- Existing audit records are immutable. Corrections, clarifications, or additional information must be recorded as a new audit event referencing the original Audit ID. The original record must never be modified or deleted.
 - Audit records must be protected against unauthorized modification or deletion.
 - Agents must report any suspected loss, corruption, or unauthorized alteration of audit records to the Orchestrator and owner.
 

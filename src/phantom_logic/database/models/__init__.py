@@ -14,6 +14,8 @@ from phantom_logic.database.models.WorkItemAuditReferenceRecord import (
     WorkItemAuditReferenceRecord,
 )
 
+from phantom_logic.database.models.AuditEventRecord import AuditEventRecord
+
 
 __all__ = [
     "DatabaseBase",
@@ -21,4 +23,5 @@ __all__ = [
     "WorkItemRelationshipRecord",
     "WorkItemAcceptanceCriterionRecord",
     "WorkItemAuditReferenceRecord",
+    "AuditEventRecord",
 ]

@@ -127,7 +127,7 @@ The Developer must report significant actions and their outcomes to the Orchestr
 ### 9.2 Audit Reporting Restrictions
 
 - Report significant actions to the Orchestrator rather than independently maintaining the central audit log.
-- Never directly modify, delete, or append entries to `var/audit/AuditLog.md`.
+- Never connect directly to the central audit database or independently insert, modify, or delete audit records. Report significant actions and their outcomes to the Orchestrator, which is the sole interface to the approved Audit Writer.
 - Never fabricate actions, approvals, timestamps, evidence, test results, or verification claims.
 - Never omit a significant failure or unauthorized action from the report.
 - Never include passwords, API keys, access tokens, private keys, or other authentication secrets in audit reports.

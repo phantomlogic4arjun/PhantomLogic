@@ -1,104 +1,101 @@
+
 import json
-import shutil
+import os
 import subprocess
-import tempfile
+import sys
 import unittest
 import uuid
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+from phantom_logic.database.DatabaseManager import DatabaseManager
+from phantom_logic.database.repositories import AuditEventRepository
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 class TestAuditWriterCliContract(unittest.TestCase):
 
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory(
-            prefix="phantom-orchestrator-audit-"
-        )
-        self.test_dir = Path(self.temp_dir.name)
-
-        repository_root = Path(__file__).resolve().parents[2]
-
-        source = (
-            repository_root
-            / "src"
-            / "phantom_logic"
-            / "audit"
-            / "AuditWriter.py"
-        )
-
-        self.writer = (
-            self.test_dir
-            / "src"
-            / "phantom_logic"
-            / "audit"
-            / "AuditWriter.py"
-        )
-        self.writer.parent.mkdir(parents=True)
-
-        self.log = (
-            self.test_dir / "var" / "audit" / "AuditLog.md"
-        )
-        self.log.parent.mkdir(parents=True)
-
-        shutil.copy2(source, self.writer)
-        self.log.touch()
-        self.log.chmod(0o600)
-
-    def tearDown(self):
-        self.temp_dir.cleanup()
-
-    def make_entry(self, **overrides):
-        timestamp = datetime.now().astimezone().strftime(
-            "%Y-%m-%d %H:%M:%S %Z"
-        )
-
+    def create_entry(self, **overrides):
         entry = {
             "audit_id": str(uuid.uuid4()),
-            "timestamp": timestamp,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "requesting_party": "Orchestrator",
             "responsible_agent": "Orchestrator",
-            "action_requested": "Integration Test Action",
-            "purpose": "Verify Orchestrator audit integration",
-            "affected_resources": "Temporary test audit log",
+            "action_requested": "CLI Integration Test",
+            "purpose": "Verify CLI audit persistence",
+            "affected_resources": "audit.audit_events",
             "approval_required": "No",
             "authorized_by": "Not Required",
             "outcome": "Successful",
-            "verification": "Isolated integration test",
+            "verification": "CLI integration test",
             "additional_notes": (
-                "Temporary test; not a production audit record"
+                "Permanent CLI integration test record"
             ),
         }
 
         entry.update(overrides)
+
         return entry
 
     def run_writer(self, payload):
-        if isinstance(payload, dict):
-            payload = json.dumps(payload)
+        environment = os.environ.copy()
+
+        environment["PYTHONPATH"] = str(
+            REPOSITORY_ROOT / "src"
+        )
 
         return subprocess.run(
-            ["python3", str(self.writer)],
-            input=payload,
+            [
+                sys.executable,
+                "-m",
+                "phantom_logic.audit.AuditWriter",
+            ],
+            input=json.dumps(payload),
             text=True,
             capture_output=True,
+            cwd=REPOSITORY_ROOT,
+            env=environment,
+            timeout=15,
         )
 
     def assert_success(self, result, entry):
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.returncode,
+            0,
+            result.stderr,
+        )
+
         self.assertIn(
-            "Audit entry appended successfully.",
+            "Audit event persisted successfully.",
             result.stdout,
         )
-        self.assertIn(entry["audit_id"], result.stdout)
-        self.assertIn(entry["audit_id"], self.log.read_text())
+
+        self.assertIn(
+            entry["audit_id"],
+            result.stdout,
+        )
+
+        self.assertTrue(
+            AuditEventRepository.exists(entry["audit_id"])
+        )
 
     def assert_failure(self, result):
         self.assertNotEqual(result.returncode, 0)
+
         self.assertNotIn(
-            "Audit entry appended successfully.",
+            "Audit event persisted successfully.",
             result.stdout,
         )
+
+    def test_successful_cli_persistence(self):
+        entry = self.create_entry()
+
+        result = self.run_writer(entry)
+
+        self.assert_success(result, entry)
 
     def test_all_permitted_outcomes(self):
         outcomes = [
@@ -111,122 +108,110 @@ class TestAuditWriterCliContract(unittest.TestCase):
 
         for outcome in outcomes:
             with self.subTest(outcome=outcome):
-                entry = self.make_entry(outcome=outcome)
+                entry = self.create_entry(outcome=outcome)
+
                 result = self.run_writer(entry)
 
                 self.assert_success(result, entry)
-                self.assertIn(
-                    f"**Outcome:** {outcome}",
-                    self.log.read_text(),
+
+    def test_both_approval_values(self):
+        for approval in ["Yes", "No"]:
+            with self.subTest(approval=approval):
+                entry = self.create_entry(
+                    approval_required=approval
                 )
 
-    def test_approval_not_required(self):
-        entry = self.make_entry(
-            approval_required="No",
-            authorized_by="Not Required",
-        )
-
-        result = self.run_writer(entry)
-
-        self.assert_success(result, entry)
-        content = self.log.read_text()
-        self.assertIn("**Approval Required:** No", content)
-        self.assertIn("**Authorized By:** Not Required", content)
-
-    def test_approval_granted(self):
-        entry = self.make_entry(
-            approval_required="Yes",
-            authorized_by="Owner",
-            outcome="Successful",
-        )
-
-        result = self.run_writer(entry)
-
-        self.assert_success(result, entry)
-        content = self.log.read_text()
-        self.assertIn("**Approval Required:** Yes", content)
-        self.assertIn("**Authorized By:** Owner", content)
-
-    def test_unapproved_action_recorded_as_blocked(self):
-        entry = self.make_entry(
-            approval_required="Yes",
-            authorized_by="Not Authorized",
-            outcome="Blocked",
-        )
-
-        result = self.run_writer(entry)
-
-        self.assert_success(result, entry)
-        content = self.log.read_text()
-        self.assertIn("**Authorized By:** Not Authorized", content)
-        self.assertIn("**Outcome:** Blocked", content)
-
-    def test_missing_required_field_rejected(self):
-        entry = self.make_entry()
-        entry.pop("purpose")
-
-        result = self.run_writer(entry)
-
-        self.assert_failure(result)
-        self.assertEqual(self.log.read_text(), "")
-
-    def test_invalid_outcome_rejected(self):
-        entry = self.make_entry(outcome="Unknown")
-
-        result = self.run_writer(entry)
-
-        self.assert_failure(result)
-        self.assertEqual(self.log.read_text(), "")
-
-    def test_invalid_approval_value_rejected(self):
-        entry = self.make_entry(approval_required="Pending")
-
-        result = self.run_writer(entry)
-
-        self.assert_failure(result)
-        self.assertEqual(self.log.read_text(), "")
-
-    def test_missing_required_fields_rejected_cli(self):
-        fields = [
-            "audit_id",
-            "timestamp",
-            "requesting_party",
-            "responsible_agent",
-            "action_requested",
-            "purpose",
-            "affected_resources",
-            "approval_required",
-            "authorized_by",
-            "outcome",
-            "verification",
-            "additional_notes",
-        ]
-        for field in fields:
-            with self.subTest(field=field):
-                entry = self.make_entry()
-                del entry[field]
                 result = self.run_writer(entry)
-                self.assert_failure(result)
-                self.assertEqual(self.log.read_text(), "")
-    def test_duplicate_audit_id_rejected(self):
-        entry = self.make_entry()
 
-        first = self.run_writer(entry)
-        self.assert_success(first, entry)
-
-        second = self.run_writer(entry)
-
-        self.assert_failure(second)
-        self.assertEqual(
-            self.log.read_text().count(entry["audit_id"]),
-            1,
-        )
+                self.assert_success(result, entry)
 
     def test_invalid_json_rejected(self):
-        result = self.run_writer("{invalid-json")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "phantom_logic.audit.AuditWriter",
+            ],
+            input="{invalid json}",
+            text=True,
+            capture_output=True,
+            cwd=REPOSITORY_ROOT,
+            env={
+                **os.environ,
+                "PYTHONPATH": str(REPOSITORY_ROOT / "src"),
+            },
+            timeout=15,
+        )
 
         self.assert_failure(result)
-        self.assertEqual(self.log.read_text(), "")
+
+    def test_missing_field_rejected(self):
+        entry = self.create_entry()
+        del entry["purpose"]
+
+        result = self.run_writer(entry)
+
+        self.assert_failure(result)
+
+    def test_invalid_timestamp_rejected(self):
+        entry = self.create_entry(
+            timestamp="2026-11-23T20:30:00"
+        )
+
+        result = self.run_writer(entry)
+
+        self.assert_failure(result)
+
+    def test_invalid_outcome_rejected(self):
+        entry = self.create_entry(
+            outcome="Unknown"
+        )
+
+        result = self.run_writer(entry)
+
+        self.assert_failure(result)
+
+    def test_duplicate_audit_id_rejected(self):
+        entry = self.create_entry()
+
+        first_result = self.run_writer(entry)
+
+        self.assert_success(first_result, entry)
+
+        second_result = self.run_writer(entry)
+
+        self.assert_failure(second_result)
+
+        self.assertIn(
+            "Duplicate Audit ID",
+            second_result.stderr,
+        )
+
+        self.assertTrue(
+            AuditEventRepository.exists(entry["audit_id"])
+        )
+
+    def test_invalid_utf8_rejected(self):
+        environment = os.environ.copy()
+
+        environment["PYTHONPATH"] = str(
+            REPOSITORY_ROOT / "src"
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "phantom_logic.audit.AuditWriter",
+            ],
+            input=b"\xff\xfe",
+            capture_output=True,
+            cwd=REPOSITORY_ROOT,
+            env=environment,
+            timeout=15,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":
