@@ -212,3 +212,23 @@ jobs:
           PHANTOM_LOGIC_DB_USER: phantom_logic_app
           PHANTOM_LOGIC_DB_PASSWORD: ci-application-password
         run: python -m unittest discover -s tests -p "Test*.py" -v
+
+  run-python-tests:
+    name: Run Python Tests
+    needs:
+      - cross-platform-tests
+      - postgresql-integration
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Python test jobs passed
+        if: ${{ needs.cross-platform-tests.result == 'success' && needs.postgresql-integration.result == 'success' }}
+        run: echo "All required Python test jobs passed."
+
+      - name: Fail when a Python test job did not pass
+        if: ${{ needs.cross-platform-tests.result != 'success' || needs.postgresql-integration.result != 'success' }}
+        run: |
+          echo "Python test jobs did not all pass."
+          echo "Cross-platform: ${{ needs.cross-platform-tests.result }}"
+          echo "PostgreSQL integration: ${{ needs.postgresql-integration.result }}"
+          exit 1
