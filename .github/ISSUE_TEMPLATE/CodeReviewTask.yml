@@ -80,8 +80,8 @@ body:
       label: Review Standards
       description: |
         Review against:
-        - PhantomLogic/Standards/CodingStandards.md
-        - PhantomLogic/Standards/CodeReviewGuidelines.md
+        - docs/standards/CodingStandards.md
+        - docs/standards/CodeReviewGuidelines.md
     validations:
       required: true
 

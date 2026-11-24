@@ -29,6 +29,9 @@ data/
 build/
 release/
 
+# Python package metadata
+*.egg-info/
+
 # macOS
 .DS_Store
 
@@ -38,3 +41,6 @@ release/
 
 # Logs
 *.log
+
+# Coverage data
+.coverage

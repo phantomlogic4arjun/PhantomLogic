@@ -24,13 +24,13 @@
       "description": "Chief Orchestrator of Phantom Logic. Coordinates specialized agents and manages product delivery.",
       "mode": "primary",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Orchestrator/Orchestrator.md}"
+      "prompt": "{file:./.opencode/agent-prompts/Orchestrator.md}"
     },
     "productmanager": {
       "description": "Product Manager of Phantom Logic. Defines requirements, user stories, priorities, and acceptance criteria.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Product Manager/Product_Manager.md}",
+      "prompt": "{file:./.opencode/agent-prompts/ProductManager.md}",
       "permission": {
          "bash": "deny",
          "task": "deny"
@@ -40,37 +40,37 @@
       "description": "Software Architect of Phantom Logic. Designs system architecture, databases, APIs, and technical solutions.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Architect/Architect.md}"
+      "prompt": "{file:./.opencode/agent-prompts/Architect.md}"
     },
     "designer": {
       "description": "UI/UX Designer of Phantom Logic. Designs user experiences, interfaces, wireframes, and design systems.",
       "mode": "subagent",
       "temperature": 0.3,
-      "prompt": "{file:./Agents/Designer/Designer.md}"
+      "prompt": "{file:./.opencode/agent-prompts/Designer.md}"
     },
     "developer": {
       "description": "Software Developer of Phantom Logic. Implements features, writes code, and maintains application quality.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Developer/Developer.md}"
+      "prompt": "{file:./.opencode/agent-prompts/Developer.md}"
     },
     "qa": {
       "description": "Quality Assurance Engineer of Phantom Logic. Plans and executes tests and verifies product quality.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/QA/QA.md}"
+      "prompt": "{file:./.opencode/agent-prompts/QA.md}"
     },
     "security": {
       "description": "Security Engineer of Phantom Logic. Reviews application security, vulnerabilities, and data protection.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Security/Security.md}"
+      "prompt": "{file:./.opencode/agent-prompts/Security.md}"
     },
     "devops": {
       "description": "DevOps Engineer of Phantom Logic. Manages development environments, builds, deployments, and infrastructure.",
       "mode": "subagent",
       "temperature": 0.2,
-      "prompt": "{file:./Agents/Devops/Devops.md}"
+      "prompt": "{file:./.opencode/agent-prompts/Devops.md}"
     }
   }
 }
