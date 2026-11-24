@@ -141,7 +141,7 @@ Docker runs the local PostgreSQL database.
 4. Select the recommended WSL2-based backend if prompted.
 5. Restart Windows if requested.
 6. Start Docker Desktop.
-7. Wait until Docker reports that it is running.
+7. Wait until Docker reports that it is running. 
 
 You do not need to install an Ubuntu distribution or open a Linux terminal.
 
@@ -400,8 +400,10 @@ Open Docker Desktop and make sure it is running.
 In PowerShell, choose a strong password for the local PostgreSQL administrator account. Replace the example below with your own local password.
 
 ```powershell
-docker run --name phantom-logic-postgres --restart unless-stopped -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD='CHANGE_THIS_LOCAL_PASSWORD' -e POSTGRES_DB=phantom_logic -p 5432:5432 -v phantom_logic_pgdata:/var/lib/postgresql -d postgres:18
+docker run --name phantom-logic-postgres --restart unless-stopped -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD='CHANGE_THIS_LOCAL_PASSWORD' -e POSTGRES_DB=phantom_logic -p 127.0.0.1:5432:5432 -v phantom_logic_pgdata:/var/lib/postgresql -d postgres:18
 ```
+
+The port is bound to `127.0.0.1` so the database is accessible from the local computer without exposing the published port to other devices on the network.
 
 Use a password without spaces or characters that require special handling in PowerShell or `.env` files.
 
@@ -428,7 +430,7 @@ docker start phantom-logic-postgres
 The project's database configuration uses these environment variables:
 
 ```powershell
-$env:PHANTOM_LOGIC_DB_HOST = "localhost"
+$env:PHANTOM_LOGIC_DB_HOST = "127.0.0.1"
 $env:PHANTOM_LOGIC_DB_PORT = "5432"
 $env:PHANTOM_LOGIC_DB_NAME = "phantom_logic"
 $env:PHANTOM_LOGIC_DB_USER = "postgres"
@@ -482,4 +484,452 @@ This assumes a fresh local database. If the role or schema already exists, stop 
 
 ### 13.4 Apply database migrations
 
-The migrations must run as the migration
+The migrations must run as the migration-owner account.
+
+Verify the migration-owner variables:
+
+```powershell
+$env:PHANTOM_LOGIC_DB_USER = "postgres"
+$env:PHANTOM_LOGIC_DB_PASSWORD = "CHANGE_THIS_LOCAL_PASSWORD"
+```
+
+Apply migrations:
+
+```powershell
+python -m alembic upgrade head
+```
+
+Do not create application tables manually.
+
+### 13.5 Grant application permissions
+
+The application role must have the same restricted permissions used by the CI workflow.
+
+Run:
+
+```powershell
+@'
+import os
+import psycopg
+
+with psycopg.connect(
+    host=os.environ["PHANTOM_LOGIC_DB_HOST"],
+    port=os.environ["PHANTOM_LOGIC_DB_PORT"],
+    dbname=os.environ["PHANTOM_LOGIC_DB_NAME"],
+    user=os.environ["PHANTOM_LOGIC_DB_USER"],
+    password=os.environ["PHANTOM_LOGIC_DB_PASSWORD"],
+) as connection:
+    connection.execute("""
+        GRANT CONNECT ON DATABASE phantom_logic
+        TO phantom_logic_app
+    """)
+
+    connection.execute("""
+        GRANT USAGE ON SCHEMA work_items
+        TO phantom_logic_app
+    """)
+
+    connection.execute("""
+        GRANT SELECT, INSERT, UPDATE, DELETE
+        ON TABLE
+            work_items.work_items,
+            work_items.work_item_relationships,
+            work_items.work_item_acceptance_criteria,
+            work_items.work_item_audit_references
+        TO phantom_logic_app
+    """)
+
+    connection.execute("""
+        GRANT USAGE ON SCHEMA audit
+        TO phantom_logic_app
+    """)
+
+    connection.execute("""
+        GRANT SELECT, INSERT
+        ON TABLE audit.audit_events
+        TO phantom_logic_app
+    """)
+
+print("Application database permissions configured.")
+'@ | python -
+```
+
+The application role must not receive UPDATE or DELETE permissions on audit records.
+
+### 13.6 Configure the application connection
+
+The repository includes `.env.example` with the expected database settings.
+
+Create your local environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open it:
+
+```powershell
+notepad .env
+```
+
+Configure it using your own local application-role password:
+
+```text
+PHANTOM_LOGIC_DB_HOST=127.0.0.1
+PHANTOM_LOGIC_DB_PORT=5432
+PHANTOM_LOGIC_DB_NAME=phantom_logic
+PHANTOM_LOGIC_DB_USER=phantom_logic_app
+PHANTOM_LOGIC_DB_PASSWORD=YOUR_APPLICATION_ROLE_PASSWORD
+```
+
+Use the same password you assigned to `phantom_logic_app` in Section 13.3.
+
+The `.env` file is local configuration and must never be committed to Git.
+
+**Administrator versus application credentials**
+
+There are two different database identities:
+
+- `postgres`: used for initial role/schema creation, migrations, and permission grants.
+- `phantom_logic_app`: used by the application and normal test execution.
+
+The migration commands in Sections 13.3–13.5 temporarily set PowerShell environment variables to the administrator account. These environment variables take precedence over values loaded from `.env`.
+
+After finishing database provisioning, open a **new PowerShell window** in the repository directory. Activate the Python virtual environment again:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Do not set the administrator database credentials in this new session.
+
+The application should now load the `phantom_logic_app` credentials from `.env`.
+
+Verify the configuration before running the application or tests. Do not use the administrator account for normal application execution.
+
+Use your own local credentials. Never copy another developer's `.env` file, passwords, or API keys.
+
+## 14. Configure OpenCode and AI models
+
+Phantom Logic uses OpenCode to run its agent environment.
+
+**Complete Section 14.1 before starting OpenCode.** The local Ollama model is mandatory.
+
+Start OpenCode through Ollama from the repository root. This allows OpenCode to use the local model while loading the project's configuration and instructions.
+
+The project configuration defines these agents:
+
+- Orchestrator
+- ProductManager
+- Architect
+- Designer
+- Developer
+- QA
+- Security
+- DevOps
+
+The Orchestrator coordinates work and delegates to specialist agents.
+
+Do not independently change agent model assignments or the shared `opencode.jsonc` configuration.
+
+### 14.1 Configure and launch the mandatory local Ollama model
+
+Make sure Ollama is running.
+
+Verify that the required model is installed:
+
+```powershell
+ollama list
+```
+
+The required model is:
+
+```text
+qwen3.5:4b
+```
+
+If it is not installed:
+
+```powershell
+ollama pull qwen3.5:4b
+```
+
+Open Ollama Settings and confirm that the context length is set to at least **64K tokens**, as described in Section 8.3.
+
+Launch OpenCode through Ollama:
+
+```powershell
+ollama launch opencode
+```
+
+Follow the model-selection prompts if they appear, and select:
+
+```text
+qwen3.5:4b
+```
+
+Do not use the `--config` option for this initial launch. That option configures OpenCode without starting an interactive session.
+
+Once OpenCode opens, use:
+
+```text
+/models
+```
+
+Confirm that the intended Ollama model is available and selected.
+
+After sending a model request, open another PowerShell window and verify the actual context allocation:
+
+```powershell
+ollama ps
+```
+
+Inspect the `CONTEXT` column. It must show at least `65536`.
+
+If the context is below 65536, revisit Ollama Settings and correct the context configuration.
+
+If the model cannot load with the required context, or the computer runs out of memory, close other applications and try again. An 8 GB computer may not have enough available memory for reliable local-agent execution. A computer with 16 GB or more RAM is recommended.
+
+Do not reduce the context below 64K to work around memory limitations.
+
+This setup is intended to configure the collaborator's local OpenCode session. Do not add personal model settings or credentials to the shared project configuration.
+
+Ollama's OpenCode integration documentation:
+
+https://docs.ollama.com/integrations/opencode
+
+Ollama context documentation:
+
+https://docs.ollama.com/context-length
+
+### 14.2 Connect cloud model providers
+
+Some assigned tasks may benefit from a cloud model in addition to the mandatory local Ollama model.
+
+Inside OpenCode, run:
+
+```text
+/connect
+```
+
+Then:
+
+1. Select the provider approved for the project.
+2. Complete its authentication process.
+3. Use your own authorized account or API key.
+4. Never share credentials with another collaborator.
+5. Never put API keys in Git-tracked files.
+
+To select an available model, run:
+
+```text
+/models
+```
+
+Choose a model available through your authenticated provider.
+
+Model availability and usage costs depend on the provider account and its access permissions.
+
+Cloud providers are optional. The local Ollama model remains mandatory.
+
+### 14.3 Model assignment rules
+
+The project configuration and agent instructions govern the agent environment.
+
+A collaborator may authenticate their own approved providers, but must not independently:
+
+- Change the Orchestrator's assigned model.
+- Change specialist agent model assignments.
+- Replace the shared provider configuration.
+- Modify `opencode.jsonc` without approval.
+
+If a required model is unavailable, report the issue to the Phantom Logic administrator rather than changing the project configuration.
+
+## 15. Verify the installation
+
+Make sure the Python virtual environment is active and the database is running.
+
+Run the full test suite:
+
+```powershell
+python -m unittest discover -s tests -p "Test*.py" -v
+```
+
+Some tests require a correctly provisioned PostgreSQL database.
+
+Run the OpenCode plugin initialization test:
+
+```powershell
+node tests/plugins/TestWorkItemPlugin.mjs
+```
+
+The expected result is successful plugin initialization and Work Item tool registration.
+
+**Important Windows validation limitation:** CI currently validates Python tests on Windows and plugin initialization on Windows. The complete native Windows Work Item plugin-to-Python execution path still requires direct validation. Do not treat successful initialization alone as proof that the entire plugin bridge works.
+
+Report any failures to the Phantom Logic administrator.
+
+## 16. Read project governance documentation
+
+Before contributing, read:
+
+1. `AGENTS.md`
+2. `docs/company/Rules.md`
+3. `docs/standards/PlatformIndependence.md`
+4. `docs/development/DevelopmentHistory.md`
+
+These documents define the project structure, agent responsibilities, development standards, audit requirements, and platform-independence expectations.
+
+Important rules:
+
+- The Orchestrator is the central coordination authority.
+- Specialist agents must follow their assigned responsibilities.
+- The Orchestrator is the sole approved interface to the central AuditWriter.
+- Agents must not write directly to the central audit database.
+- Work Item operations must follow the approved audit process.
+- Failed audit submissions must not be silently ignored.
+- Do not bypass governance rules to complete a task faster.
+- Do not modify security rules, migrations, or architecture without approval.
+
+## 17. Your first contribution
+
+Once the installation is verified:
+
+1. Update your local main branch.
+2. Create a feature branch for your assigned work.
+3. Read the applicable project instructions.
+4. Coordinate work through the Orchestrator.
+5. Make changes only within the approved scope.
+6. Run relevant tests.
+7. Review your changes.
+8. Commit your work.
+9. Push your feature branch.
+10. Open a pull request.
+
+Do not push directly to `main`.
+
+Follow the repository's pull request template and required sections, including `Related Work Items` and `Change Sets`.
+
+Wait for the required checks and review before merging.
+
+## 18. Troubleshooting
+
+### Python is not recognized
+
+Open a new PowerShell window and try:
+
+```powershell
+py -3.12 --version
+```
+
+If this fails, repair the Python installation and enable the Python launcher.
+
+### PowerShell blocks virtual environment activation
+
+Run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Then activate `.venv` again.
+
+### Docker is not running
+
+Start Docker Desktop and wait until the engine is running.
+
+Verify:
+
+```powershell
+docker info
+```
+
+### PostgreSQL container already exists
+
+Inspect it:
+
+```powershell
+docker ps -a
+```
+
+Start it:
+
+```powershell
+docker start phantom-logic-postgres
+```
+
+Do not delete the PostgreSQL volume to solve a routine startup issue. It contains local database data.
+
+### Ollama model is unavailable
+
+Verify Ollama:
+
+```powershell
+ollama list
+```
+
+If necessary:
+
+```powershell
+ollama pull qwen3.5:4b
+```
+
+### Ollama cannot allocate 64K context
+
+1. Close other applications that are using significant memory.
+2. Open Ollama Settings.
+3. Confirm the context length is at least 64K.
+4. Retry the model request.
+5. Check the actual allocation using:
+
+```powershell
+ollama ps
+```
+
+If the computer cannot allocate the required context, it may not have enough available memory for local-agent execution. Use a machine with more available RAM rather than reducing the required context.
+
+### OpenCode cannot find a provider or model
+
+Check the current project configuration and provider connection. Confirm that Ollama is running and the required local model is installed.
+
+Do not independently rewrite `opencode.jsonc` or agent prompt files.
+
+### Tests fail
+
+Capture the complete error output and report it to the administrator. Do not bypass failing tests or weaken security checks to make the suite pass.
+
+## 19. Completion checklist
+
+- [ ] GitHub account created and repository invitation accepted.
+- [ ] Git installed and configured.
+- [ ] Python 3.12 installed.
+- [ ] Node.js 24 installed.
+- [ ] Visual Studio Code installed.
+- [ ] Docker Desktop installed and running.
+- [ ] PostgreSQL container running.
+- [ ] Database and application role provisioned.
+- [ ] Alembic migrations applied.
+- [ ] Application database permissions configured.
+- [ ] Local `.env` configured with the `phantom_logic_app` credentials.
+- [ ] Ollama installed.
+- [ ] `qwen3.5:4b` downloaded and tested.
+- [ ] Ollama context configured to at least 64K.
+- [ ] Actual Ollama context verified using `ollama ps`.
+- [ ] OpenCode CLI 1.19.5 installed and verified.
+- [ ] Ollama connected to OpenCode and the local model selected.
+- [ ] Repository cloned.
+- [ ] Python virtual environment created.
+- [ ] Project dependencies installed.
+- [ ] OpenCode plugin dependencies installed.
+- [ ] Project agents verified.
+- [ ] Python tests executed.
+- [ ] Work Item plugin initialization verified.
+- [ ] Native Windows plugin-to-Python execution tested when the validation procedure is available.
+- [ ] Governance documents read.
+- [ ] Ready to create a feature branch and contribute.
+
+---
+
+**Phantom Logic**
+
+*Humans Guide. Agents Execute.*
