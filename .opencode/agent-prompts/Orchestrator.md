@@ -536,11 +536,13 @@ For every audit record, the Orchestrator must:
    - Cancelled
    - Blocked
 
-8. Submit the JSON object to the Audit Writer through standard input using the approved Bash execution mechanism.
+8. Submit the JSON object to the Audit Writer through standard input using the approved command-execution mechanism for the active platform.
+
+Before invocation, ensure the project's `.venv` is active. Do not set `PYTHONPATH`.
 
 The required invocation is:
 
-`PYTHONPATH=src python3 -m phantom_logic.audit.AuditWriter`
+`python -m phantom_logic.audit.AuditWriter`
 
 The JSON object must be supplied through standard input.
 

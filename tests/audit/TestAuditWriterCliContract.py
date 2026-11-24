@@ -40,13 +40,12 @@ class TestAuditWriterCliContract(unittest.TestCase):
 
         return entry
 
-    def run_writer(self, payload):
+    def create_subprocess_environment(self):
         environment = os.environ.copy()
+        environment.pop("PYTHONPATH", None)
+        return environment
 
-        environment["PYTHONPATH"] = str(
-            REPOSITORY_ROOT / "src"
-        )
-
+    def run_writer(self, payload):
         return subprocess.run(
             [
                 sys.executable,
@@ -57,7 +56,7 @@ class TestAuditWriterCliContract(unittest.TestCase):
             text=True,
             capture_output=True,
             cwd=REPOSITORY_ROOT,
-            env=environment,
+            env=self.create_subprocess_environment(),
             timeout=15,
         )
 
@@ -136,10 +135,7 @@ class TestAuditWriterCliContract(unittest.TestCase):
             text=True,
             capture_output=True,
             cwd=REPOSITORY_ROOT,
-            env={
-                **os.environ,
-                "PYTHONPATH": str(REPOSITORY_ROOT / "src"),
-            },
+            env=self.create_subprocess_environment(),
             timeout=15,
         )
 
@@ -192,11 +188,7 @@ class TestAuditWriterCliContract(unittest.TestCase):
         )
 
     def test_invalid_utf8_rejected(self):
-        environment = os.environ.copy()
-
-        environment["PYTHONPATH"] = str(
-            REPOSITORY_ROOT / "src"
-        )
+        environment = self.create_subprocess_environment()
 
         result = subprocess.run(
             [

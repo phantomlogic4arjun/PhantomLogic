@@ -16,6 +16,8 @@ Agents must follow these documents:
 
 - `docs/company/PhantomLogic.md` — Company mission, principles, technology preferences, and human approval requirements.
 - `docs/company/Rules.md` — Detailed operating rules, security requirements, command permissions, delegation, audit responsibilities, and approval procedures.
+
+- `docs/standards/PlatformIndependence.md` — Requirements for cross-platform development, testing, runtime compatibility, and platform support.
 - `docs/architecture/system/Architecture.md` — Organizational architecture and product development lifecycle.
 - `docs/architecture/decisions/` — Accepted architecture decisions and their constraints.
 - `.opencode/agent-prompts/` — Detailed responsibilities and operating instructions for individual agents.
@@ -27,9 +29,9 @@ ADR-006 establishes the current central control-plane and independent product re
 - `.github/` — GitHub configuration, issue templates, and CI workflows.
 - `.opencode/` — OpenCode configuration, agent prompts, plugins, and supporting resources.
 - `docs/` — Company, architecture, development, standards, and Work Item documentation.
+
 - `src/phantom_logic/` — Installable Python control-plane package.
 - `tests/` — Automated Python tests.
-- `var/` — Runtime and maintained application data, including audit records.
 - `AGENTS.md` — Repository-wide agent instructions.
 - `README.md` — Company and repository overview.
 - `opencode.jsonc` — OpenCode agent registration, configuration, and permissions.
@@ -74,10 +76,12 @@ The Python application uses a `src` package layout.
 
 Use established package import paths.
 
-Standard test command:
+Activate the project's `.venv` virtual environment before running Python development commands.
+
+Standard test command (run from the repository root):
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests -p 'Test*.py' -v
+python -m unittest discover -s tests -p 'Test*.py' -v
 ```
 
 Do not change database schemas, migration history, authorization rules, or existing business behavior unless explicitly included in the approved task.
@@ -109,7 +113,7 @@ The Orchestrator is the sole interface to the existing AuditWriter. Work Item Ma
 Preserve the existing audit architecture and security behavior.
 
 - Audit implementation: `src/phantom_logic/audit/`
-- Audit records: `var/audit/`
+- Audit records: PostgreSQL database `phantom_logic`, table `audit.audit_events`.
 - Audit ownership: Orchestrator.
 
 Never bypass the approved AuditWriter.

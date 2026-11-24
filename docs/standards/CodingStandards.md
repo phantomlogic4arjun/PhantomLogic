@@ -318,7 +318,9 @@ Standards must not be bypassed silently.
 
 All Developer agents are expected to follow this document.
 
-The Reviewer uses this document together with `CodeReviewGuidelines.md` when evaluating submitted changes.
+All development, modification, testing, and review work involving platform compatibility must also follow `PlatformIndependence.md`.
+
+The Reviewer uses this document together with `CodeReviewGuidelines.md` and `PlatformIndependence.md` when evaluating submitted changes.
 
 The Work Item Manager and Orchestrator may use compliance results as part of development workflow enforcement.
 

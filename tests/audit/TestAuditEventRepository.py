@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 
 from phantom_logic.database.DatabaseManager import DatabaseManager
+from phantom_logic.database.DatabaseConfig import DatabaseConfig
 from phantom_logic.database.repositories import AuditEventRepository
 
 
@@ -52,7 +53,7 @@ class TestAuditEventRepository(unittest.TestCase):
 
             self.assertEqual(
                 current_database,
-                "phantom_logic",
+                DatabaseConfig.get_database_url().database,
             )
 
         finally:

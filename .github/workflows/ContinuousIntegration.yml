@@ -1,27 +1,115 @@
-
 name: Continuous Integration
 
 on:
   pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  run-tests:
-    name: Run Python Tests
+  cross-platform-tests:
+    name: Cross-Platform Tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        python-version:
+          - "3.11"
+          - "3.12"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Display Python version
+        run: python --version
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Test Work Item models
+        run: python -m unittest discover -s tests/work_items/models -p "Test*.py" -v
+
+      - name: Test Work Item rules
+        run: python -m unittest discover -s tests/work_items/rules -p "Test*.py" -v
+
+      - name: Test Work Item managers
+        run: python -m unittest discover -s tests/work_items/managers -p "Test*.py" -v
+
+      - name: Test Work Item interfaces
+        run: python -m unittest discover -s tests/work_items/interfaces -p "Test*.py" -v
+
+      - name: Test Audit Writer unit tests
+        run: python -m unittest discover -s tests/audit -p "TestAuditWriter.py" -v
+
+  plugin-validation:
+    name: OpenCode Plugin Validation
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: .opencode/package-lock.json
+
+      - name: Install OpenCode plugin dependencies
+        run: npm ci --prefix .opencode
+
+      - name: Test Work Item plugin initialization
+        run: node --experimental-strip-types tests/plugins/TestWorkItemPlugin.mjs
+
+  postgresql-integration:
+    name: PostgreSQL Integration Tests
+
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: phantom_logic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d phantom_logic"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PHANTOM_LOGIC_DB_HOST: localhost
+      PHANTOM_LOGIC_DB_PORT: 5432
+      PHANTOM_LOGIC_DB_NAME: phantom_logic
 
     steps:
       - name: Check out repository
@@ -32,15 +120,95 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Display Python version
-        run: python --version
-
-      - name: Install Python Project
+      - name: Install project
         run: python -m pip install -e .
 
-      - name: Run Complete Python Test Suite
+      - name: Create application role and migration schema
+        env:
+          PHANTOM_LOGIC_DB_USER: postgres
+          PHANTOM_LOGIC_DB_PASSWORD: postgres
         run: |
-          PYTHONPATH=src python -m unittest discover \
-            -s tests \
-            -p "Test*.py" \
-            -v
+          python - <<'PY'
+          import psycopg
+
+          with psycopg.connect(
+              host="localhost",
+              port=5432,
+              dbname="phantom_logic",
+              user="postgres",
+              password="postgres",
+          ) as connection:
+              connection.execute("""
+                  CREATE ROLE phantom_logic_app
+                  LOGIN PASSWORD 'ci-application-password'
+              """)
+
+              connection.execute("""
+                  CREATE SCHEMA work_items
+                  AUTHORIZATION postgres
+              """)
+
+          print("Application role and migration schema created.")
+          PY
+
+      - name: Apply database migrations
+        env:
+          PHANTOM_LOGIC_DB_USER: postgres
+          PHANTOM_LOGIC_DB_PASSWORD: postgres
+        run: python -m alembic upgrade head
+
+      - name: Grant application permissions
+        env:
+          PHANTOM_LOGIC_DB_USER: postgres
+          PHANTOM_LOGIC_DB_PASSWORD: postgres
+        run: |
+          python - <<'PY'
+          import psycopg
+
+          with psycopg.connect(
+              host="localhost",
+              port=5432,
+              dbname="phantom_logic",
+              user="postgres",
+              password="postgres",
+          ) as connection:
+
+              connection.execute("""
+                  GRANT CONNECT ON DATABASE phantom_logic
+                  TO phantom_logic_app
+              """)
+
+              connection.execute("""
+                  GRANT USAGE ON SCHEMA work_items
+                  TO phantom_logic_app
+              """)
+
+              connection.execute("""
+                  GRANT SELECT, INSERT, UPDATE, DELETE
+                  ON TABLE
+                      work_items.work_items,
+                      work_items.work_item_relationships,
+                      work_items.work_item_acceptance_criteria,
+                      work_items.work_item_audit_references
+                  TO phantom_logic_app
+              """)
+
+              connection.execute("""
+                  GRANT USAGE ON SCHEMA audit
+                  TO phantom_logic_app
+              """)
+
+              connection.execute("""
+                  GRANT SELECT, INSERT
+                  ON TABLE audit.audit_events
+                  TO phantom_logic_app
+              """)
+
+          print("Application database permissions configured.")
+          PY
+
+      - name: Run complete test suite
+        env:
+          PHANTOM_LOGIC_DB_USER: phantom_logic_app
+          PHANTOM_LOGIC_DB_PASSWORD: ci-application-password
+        run: python -m unittest discover -s tests -p "Test*.py" -v

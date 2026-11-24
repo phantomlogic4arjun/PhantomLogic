@@ -21,8 +21,10 @@ Security:
     - Verifies successful persistence through a database read.
 
 Usage:
-    PYTHONPATH=src python3 -m phantom_logic.audit.AuditWriter \
-        < audit_entry.json
+    python -m phantom_logic.audit.AuditWriter
+
+Input:
+    Supply the audit JSON object through standard input.
 """
 
 import json
